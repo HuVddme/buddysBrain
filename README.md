@@ -2,7 +2,13 @@
 
 Buddy's Brain is an intelligent, AI-powered educational assistant designed to help students quickly and effectively find relevant educational resources. It leverages advanced vector-based semantic search and OpenAI's GPT models to provide clear, concise summaries and explanations. Buddy's Brain also supports voice interactions through text-to-speech (TTS) and speech-to-text (STT), allowing users to engage naturally with the assistant. Users can interact through a React frontend. The original team deployment is at:
 
-[buddys-brain-alpha.vercel.app](https://buddys-brain-alpha.vercel.app/). This fork does not update that deployment.
+[buddys-brain-alpha.vercel.app](https://buddys-brain-alpha.vercel.app/). This independent version does not update that deployment.
+
+This repository continues the original team project from
+[RobelK1738/Buddys-Brain](https://github.com/RobelK1738/Buddys-Brain).
+Its code and Git history were migrated from
+[HuVddme/Buddys-Brain](https://github.com/HuVddme/Buddys-Brain), with original
+authorship and contributor credits preserved.
 
 ## Features
 
@@ -18,7 +24,7 @@ Buddy's Brain is an intelligent, AI-powered educational assistant designed to he
 - **Frontend**: React
 - **Backend**: FastAPI, MongoDB (with vector search capabilities)
 - **AI Model**: OpenAI GPT-6 Luna
-- **Deployment**: Vercel Services configuration for this fork's frontend and API; a separate frontend-only demo deployment is also supported.
+- **Deployment**: Vercel Services configuration for this version's frontend and API; a separate frontend-only demo deployment is also supported.
 
 ## Repository layout
 
@@ -52,8 +58,8 @@ and retry/status tracking are planned, not implemented by this cleanup.
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/HuVddme/Buddys-Brain
-cd Buddys-Brain/backend
+git clone https://github.com/HuVddme/buddysBrain.git
+cd buddysBrain/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -90,7 +96,7 @@ unrestricted chatbot. The existing stylesheet may fetch a web font separately.
 
 ### Deploy your own frontend demo
 
-In your own Vercel account, import **HuVddme/Buddys-Brain** as a **new project**:
+In your own Vercel account, import **HuVddme/buddysBrain** as a **new project**:
 
 | Setting | Value |
 | --- | --- |
@@ -110,7 +116,7 @@ no new hosted deployment is created by these code changes. See
 
 ### Deploy frontend and backend together on Vercel
 
-Alternatively, import **your fork** with Root Directory set to the repository
+Alternatively, import **HuVddme/buddysBrain** with Root Directory set to the repository
 root (`.`). The root `vercel.json` configures Vercel Services, currently in
 [Beta](https://vercel.com/docs/services):
 
@@ -176,7 +182,7 @@ tests use mocked services and do not prove a hosted deployment works.
    `VITE_ENABLE_LIVE=true`, then rebuild/redeploy. For local development, put
    those two public values in the frontend `.env` and restart Vite.
 4. Check one real search and upload before inviting visitors. Do not connect
-   your fork to the teammate's production backend.
+   this version to the teammate's production backend.
 
 The default view remains the demo even when live mode is enabled. **Ask live**
 allows custom questions, and live users can open the upload page. With live mode
@@ -274,7 +280,7 @@ backend address and set `VITE_ENABLE_LIVE=true` only for live use. Rebuild the
 frontend when these values change. No secret belongs
 in a `VITE_*` variable.
 
-### First round of fixes in this fork
+### First round of improvements
 
 - Cloudinary reads your backend environment variables instead of committed credentials.
 - Deletion requires `Authorization: Bearer <RESOURCE_ADMIN_TOKEN>`. Generate a long
@@ -297,7 +303,7 @@ in a `VITE_*` variable.
 
 Changing credentials does not migrate existing media. The original Cloudinary
 account owner must still rotate the credentials exposed in repository history.
-Deploying this fork requires your own services; no changes here update the original site.
+Deploying this version requires your own services; no changes here update the original site.
 
 ### Tests without accounts or API keys
 
