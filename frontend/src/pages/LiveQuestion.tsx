@@ -32,6 +32,7 @@ const LiveQuestion = () => {
   const questionInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDialogElement>(null);
+  const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     if (!selectedResult) return;
     const dialog = previewRef.current;
@@ -236,12 +237,15 @@ const LiveQuestion = () => {
     }
   };
 
-  const handleResultClick = (result: Resource) => {
+  const handleResultClick = (result: Resource, trigger: HTMLButtonElement) => {
+    previewTriggerRef.current = trigger;
     setSelectedResult(result);
   };
 
   const handleCloseModal = () => {
+    previewRef.current?.close();
     setSelectedResult(null);
+    previewTriggerRef.current?.focus({ preventScroll: true });
   };
 
   const renderMessageWithLinks = (text: string) => {

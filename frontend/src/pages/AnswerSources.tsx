@@ -9,7 +9,7 @@ export default function AnswerSources({
   results: Resource[];
   retrievalNotice?: string;
   isError?: boolean;
-  onViewDetails: (resource: Resource) => void;
+  onViewDetails: (resource: Resource, trigger: HTMLButtonElement) => void;
 }) {
   return (
     <>
@@ -50,7 +50,7 @@ export default function AnswerSources({
                   <button
                     type="button"
                     className="resource-details"
-                    onClick={() => onViewDetails(item)}
+                    onClick={(event) => onViewDetails(item, event.currentTarget)}
                   >
                     View details for {item.title}
                   </button>

@@ -96,6 +96,7 @@ test.each(['https://youtu.be/abcdefghijk', 'https://youtube.com/shorts/abcdefghi
   expect(dialog.open).toBe(true);
   fireEvent(dialog, new Event('cancel', { bubbles: false, cancelable: true }));
   expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'View details for Video' }));
 });
 
 test('consecutive answers retain their own P1 passages and resource details', async () => {
