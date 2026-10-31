@@ -1,6 +1,13 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
-import viteConfig from './vite.config.js';
+import { defineConfig, mergeConfig } from "vitest/config";
+import viteConfig from "./vite.config.js";
 
-export default mergeConfig(viteConfig, defineConfig({
-  test: { environment: 'jsdom', clearMocks: true },
-}));
+export default mergeConfig(
+  viteConfig,
+  defineConfig({
+    test: {
+      environment: "jsdom",
+      setupFiles: ["./src/testSetup.js"],
+      clearMocks: true,
+    },
+  }),
+);

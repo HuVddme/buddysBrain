@@ -404,6 +404,7 @@ From `frontend`:
 npm ci
 npm test
 npm run lint
+npm run typecheck
 npm run build
 ```
 
@@ -412,6 +413,20 @@ unavailable speech APIs, demo questions and their supporting passages, disabled
 live configuration, upload retries, partial search results and usage-limit errors. Live MongoDB
 vector search, OpenAI responses and Cloudinary uploads still require your own
 configured services and a separate integration check.
+
+### Frontend structure
+
+The application pages and shared components use React with TypeScript (`.tsx`).
+Tailwind CSS 4 is integrated through Vite; `src/styles/index.css` contains shared
+colors, layouts and component styles. `AppShell` provides navigation across the
+home, demo, live questions and submission flows. URL parameters preserve the
+selected demo lesson and asking mode across browser navigation.
+
+`npm run build` runs strict TypeScript checks before bundling. Existing JavaScript
+helpers and test files remain supported with `allowJs`; they can be migrated
+individually. Use typed props and the API shapes in `src/lib/types.ts` for new
+components. TypeScript improves development checks; backend validation still
+protects incoming requests. The Python backend and deployment paths are unchanged.
 
 ## API Endpoint
 

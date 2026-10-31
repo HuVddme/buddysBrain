@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import axios from 'axios';
@@ -92,6 +92,10 @@ test.each(['https://youtu.be/abcdefghijk', 'https://youtube.com/shorts/abcdefghi
     expect(screen.queryByTitle('YouTube Video')).toBeNull();
     expect(screen.getByText('Preview unavailable for this video. Use Open Resource to view the original.')).toBeTruthy();
   }
+  const dialog = screen.getByRole('dialog', { name: 'Video' });
+  expect(dialog.open).toBe(true);
+  fireEvent(dialog, new Event('cancel', { bubbles: false, cancelable: true }));
+  expect(screen.queryByRole('dialog')).toBeNull();
 });
 
 test('consecutive answers retain their own P1 passages and resource details', async () => {

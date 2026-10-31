@@ -7,7 +7,6 @@ import DocumentJob from './DocumentJob';
 import SubmitDocument from './SubmitDocument';
 
 vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
-vi.mock('react-confetti', () => ({ default: () => null }));
 const job = { job_id: 'bbad0267-68bc-4f52-a777-4b1e8731ed96', title: 'Notes', status: 'queued', retry_available: false };
 
 beforeEach(() => {
@@ -61,6 +60,9 @@ test.each([false, true])('completed upload uses the saved title and live link (d
   expect(screen.getByText('"Original saved title" is in the library.')).toBeTruthy();
   expect(screen.queryByText(/being processed/)).toBeNull();
   expect(screen.getByRole('link', { name: 'Ask Buddy' }).getAttribute('href')).toBe('/ask?mode=live');
+  await user.click(screen.getByRole('button', { name: 'Submit Another' }));
+  expect(screen.getByLabelText('Title:').value).toBe('');
+  expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy();
 });
 
 test('failed job retries the saved upload without uploading its file again', async () => {
