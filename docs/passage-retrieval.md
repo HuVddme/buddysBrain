@@ -1,8 +1,9 @@
 # Original document passage retrieval
 
-This completes the original-passage part of milestone 2. It is not milestone 3's
-PostgreSQL processing states, duplicate-upload detection, durable worker, retry
-queue, or per-user ownership. MongoDB remains the current database.
+This completes the original-passage part of milestone 2. Milestone 3's PostgreSQL
+jobs, duplicate-upload detection, worker and retries are documented separately
+in [document ingestion](document-ingestion.md). MongoDB remains the searchable
+library; per-user ownership requires a future account system.
 
 ## Deployment setup
 

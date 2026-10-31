@@ -265,8 +265,11 @@ def test_short_question_keeps_ranked_candidates_below_old_cutoff(client, db, pro
                 assert vector["numCandidates"] >= 20 * vector["limit"]
                 rows = rows[:vector["limit"]]
             elif "$match" in stage:
-                cutoff = stage["$match"]["score"]["$gt"]
-                rows = [row for row in rows if row["score"] > cutoff]
+                if 'score' in stage['$match']:
+                    cutoff = stage["$match"]["score"]["$gt"]
+                    rows = [row for row in rows if row["score"] > cutoff]
+                if '_deleted' in stage['$match']:
+                    rows = [row for row in rows if not row.get('_deleted')]
             elif "$limit" in stage:
                 rows = rows[:stage["$limit"]]
         return Cursor(rows)

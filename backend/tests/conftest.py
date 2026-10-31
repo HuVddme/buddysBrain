@@ -33,6 +33,7 @@ def isolated(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", no_network)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("RESOURCE_ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("DOCUMENT_INGESTION_ENABLED", raising=False)
     for variable in ("OPENAI_MODEL", "OPENAI_REASONING_EFFORT", "OPENAI_MAX_COMPLETION_TOKENS"):
         monkeypatch.delenv(variable, raising=False)
     # Ordinary route tests isolate the quota store. Dedicated usage tests restore
@@ -68,6 +69,7 @@ def db(monkeypatch):
     collection.find_one = AsyncMock()
     collection.delete_one = AsyncMock()
     collection.update_one = AsyncMock()
+    collection.replace_one = AsyncMock()
     monkeypatch.setattr(resources, "collection", collection)
     monkeypatch.setattr(search, "collection", collection)
     from app.services import passage_store

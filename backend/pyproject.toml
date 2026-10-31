@@ -20,6 +20,8 @@ dependencies = [
     "torch",
     "scikit-learn",
     "scipy",
+    "psycopg[binary]>=3.2,<4",
+    "vercel-queue==0.10.0",
 ]
 
 [tool.uv]
@@ -34,3 +36,6 @@ torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
+
+[[tool.vercel.subscribers]]
+entrypoint = "app.ingestion_subscriber"

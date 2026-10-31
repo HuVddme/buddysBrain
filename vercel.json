@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/internal/ingestion/reconcile", "schedule": "23 5 * * *" }
+  ],
   "services": {
     "api": {
       "root": "backend",

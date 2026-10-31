@@ -28,6 +28,7 @@ async def vector_search_and_summarize(payload: SearchQuery):
             # answer generation must check whether they support the question.
             "limit": 5
         }},
+        {"$match": {"_deleted": {"$ne": True}}},
         {"$project": {
             "title": 1,
             "summary": 1,

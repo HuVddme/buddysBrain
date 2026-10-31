@@ -13,7 +13,7 @@ def passage_pipeline(vector):
         {"$lookup": {
             "from": "resources", "let": {"resource_id": "$resource_id", "revision": "$revision"},
             "pipeline": [
-                {"$match": {"$expr": {"$and": [
+                {"$match": {"_deleted": {"$ne": True}, "$expr": {"$and": [
                     {"$eq": ["$_id", "$$resource_id"]},
                     {"$eq": ["$passage_revision", "$$revision"]},
                 ]}}},

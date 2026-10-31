@@ -18,6 +18,7 @@ authorship and contributor credits preserved.
 - **Fallback Summaries**: Provides brief, AI-generated summaries from general model knowledge (without live web browsing) when internal resources aren't available.
 - **Voice Interaction**: Supports natural voice-based interactions using TTS and STT technologies.
 - **Media Uploads**: Allows users to upload different media types such as images, videos, links, and documents to assist future students.
+- **Reliable Document Processing**: Optional PostgreSQL job tracking, byte-level duplicate prevention, background workers, saved processing checkpoints and status/retry controls. See [setup and guarantees](docs/document-ingestion.md).
 
 ## Tech Stack
 
@@ -40,9 +41,10 @@ vercel.json           Public routing and configuration for web + api
 ```
 
 See [architecture and deployment decisions](docs/architecture.md). The API and
-frontend stay in one repository and can also run independently. The processing
-services currently run in a request's thread pool; a durable ingestion worker
-and retry/status tracking are planned, not implemented by this cleanup.
+frontend stay in one repository and can also run independently. Document uploads
+can use the durable PostgreSQL/Vercel Queue worker described in the
+[ingestion guide](docs/document-ingestion.md). Other media retain request-time
+processing in a thread pool.
 
 ## Getting Started
 

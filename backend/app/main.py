@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routes import resources, search, passage_admin
+from .routes import resources, search, passage_admin, ingestion
 
 app = FastAPI()
 
@@ -24,3 +24,5 @@ app.add_middleware(
 app.include_router(resources.router)
 app.include_router(search.router)
 app.include_router(passage_admin.router)
+app.include_router(ingestion.router)
+app.include_router(ingestion.admin_router)

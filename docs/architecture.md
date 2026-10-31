@@ -11,6 +11,14 @@ flowchart LR
     API --> Services[Ingestion, embeddings and AI services]
     API --> Mongo[(MongoDB: resources and original text)]
     API --> Passages[(MongoDB: resource_passages)]
+    API --> Jobs[(Neon PostgreSQL: document jobs)]
+    API --> Queue[Vercel Queues]
+    Queue --> Worker[Private Python document worker]
+    Worker <--> Jobs
+    Worker --> Mongo
+    Worker --> Passages
+    Worker --> Cloudinary
+    Worker --> OpenAI
     Services --> Cloudinary[Cloudinary uploads]
     Services --> OpenAI[OpenAI]
     Services --> Model[Local MiniLM embedding model]
@@ -53,12 +61,13 @@ Vercel uploads are capped at 4 MB to allow multipart overhead below the function
 storage using server-authorized uploads, then enqueue processing of the stored
 object. Do not send Cloudinary's API secret to the browser.
 
-Processing currently runs in a thread pool within the HTTP request. This avoids
-blocking the async event loop but does not make work durable. Step 3 still needs
-persistent job/status records, deduplication, a worker, and safe retries. Keep
-those operations in `app/services/` so a worker can reuse them without importing
-HTTP routes. Choose the worker runtime when implementing that feature; the
-repository does not require every runtime to use the same hosting provider.
+With `DOCUMENT_INGESTION_ENABLED=true`, PDF/DOCX/TXT uploads are saved atomically
+as PostgreSQL jobs before background processing. Vercel's private queue worker
+claims jobs, checkpoints work and publishes stable resource/passage IDs. A daily
+reconciler and user retry recover missed notifications. Images/links and disabled
+ingestion retain their request-time thread-pool behavior. See the
+[ingestion guide](document-ingestion.md) for activation, concurrency guarantees,
+retention, the local worker and the shared-public-library scope.
 
 ## Local development and checks
 
@@ -66,8 +75,8 @@ Run the applications separately using their READMEs, or run `vercel dev` from th
 repository root with the Vercel CLI and service dependencies installed. Separate
 local apps use an absolute API URL; the combined deployment uses `/api`.
 
-CI runs backend tests with mocked external services, plus frontend tests, lint
-and a production build. These checks do not validate production credentials,
+CI runs backend tests with mocked external services, real PostgreSQL concurrency
+tests, plus frontend tests, lint and a production build. These checks do not validate production credentials,
 MongoDB network access/vector indexes, AI availability, or hosted ML performance.
 The root README documents the remaining live checks and environment variables.
 

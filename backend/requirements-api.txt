@@ -11,3 +11,5 @@ requests>=2.32,<3
 urllib3>=2.6,<3
 cloudinary
 python-multipart
+psycopg[binary]>=3.2,<4
+vercel-queue==0.10.0

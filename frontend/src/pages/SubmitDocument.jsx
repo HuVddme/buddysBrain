@@ -5,6 +5,14 @@ import "../styles/SubmitDocument.css";
 import "../styles/Demo.css";
 import axios from 'axios';
 import SubmittedPage from './SubmittedPage';
+import DocumentJob from './DocumentJob';
+
+function savedJob() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('document-job'));
+    return saved?.apiBase === apiBaseUrl() && /^[a-f0-9-]{36}$/.test(saved?.job?.job_id) ? saved.job : null;
+  } catch { return null; }
+}
 
 const SubmitDocumentPage = () => {
   const [mediaType, setMediaType] = useState('');
@@ -16,6 +24,7 @@ const SubmitDocumentPage = () => {
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [job, setJob] = useState(savedJob);
   const busy = useRef(false);
   const API_BASE_URL = apiBaseUrl();
 
@@ -66,9 +75,14 @@ const SubmitDocumentPage = () => {
         formData.append('course', courseName);
         formData.append('summary', description);
 
-        await axios.post(`${API_BASE_URL}/upload`, formData, {
+        const { data } = await axios.post(`${API_BASE_URL}/upload`, formData, {
           timeout: LIVE_TIMEOUT_MS,
         });
+        if (data?.job_id) {
+          setJob(data);
+          try { sessionStorage.setItem('document-job', JSON.stringify({ apiBase: API_BASE_URL, job: { job_id: data.job_id } })); } catch { /* Storage may be disabled. */ }
+          return;
+        }
       }
 
       setSubmitted(true);
@@ -97,7 +111,13 @@ const SubmitDocumentPage = () => {
     <div className="page-container">
       <a href="/" className="back-button">Back</a>
 
-      {submitted ? (
+      {job ? (
+        <DocumentJob initialJob={job} apiBase={API_BASE_URL} onNewUpload={() => {
+          setJob(null);
+          setUploadFile(null);
+          try { sessionStorage.removeItem('document-job'); } catch { /* Storage may be disabled. */ }
+        }} />
+      ) : submitted ? (
         <SubmittedPage title={title} />
       ) : (
         <div className="content">
