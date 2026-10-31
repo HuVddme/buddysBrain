@@ -33,6 +33,7 @@ def isolated(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", no_network)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("RESOURCE_ADMIN_TOKEN", raising=False)
+    monkeypatch.setenv("VISITOR_RATE_LIMIT_SECRET", "test-only-visitor-secret")
     monkeypatch.delenv("DOCUMENT_INGESTION_ENABLED", raising=False)
     for variable in ("OPENAI_MODEL", "OPENAI_REASONING_EFFORT", "OPENAI_MAX_COMPLETION_TOKENS"):
         monkeypatch.delenv(variable, raising=False)

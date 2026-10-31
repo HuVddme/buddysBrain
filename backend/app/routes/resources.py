@@ -6,7 +6,7 @@ import logging
 from typing import Annotated
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile, Response
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile, Response, Request
 
 from ..auth import require_resource_admin
 from ..usage import limiter, reserve_request
@@ -29,8 +29,8 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 
 @router.post("/resources", response_model=ResourceOut)
-async def create_resource(resource: ResourceCreate):
-    await reserve_request()
+async def create_resource(resource: ResourceCreate, request: Request):
+    await reserve_request(request)
     summary, embedding = await run_processing(summarize_link, resource.media_type, resource.media_link)
     resource_dict = ResourceModel(**resource.model_dump(), summary=summary, embedding=embedding).model_dump()
     result = await collection.insert_one(resource_dict)
@@ -124,7 +124,7 @@ async def read_upload(file):
 
 @router.post("/upload")
 async def upload_and_create_resource(
-    response: Response, file: Annotated[UploadFile, File()],
+    response: Response, request: Request, file: Annotated[UploadFile, File()],
     title: Annotated[ResourceTitle, Form()], description: Annotated[ResourceDescription, Form()],
     course: Annotated[ResourceCourse, Form()],
 ):
@@ -136,7 +136,7 @@ async def upload_and_create_resource(
     else:
         raise HTTPException(415, "Supported files: PDF, DOCX, TXT, PNG, JPEG, WEBP and GIF.")
     contents = await read_upload(file)
-    await reserve_request()
+    await reserve_request(request)
     if media_type == 'document' and jobs.enabled():
         # Already-migrated legacy documents have a content hash too.
         existing = await collection.find_one({'source_sha256': sha256(contents).hexdigest(), 'media_type': 'document'})
@@ -182,7 +182,7 @@ async def reprocess_document(resource_id: str, file: UploadFile = File(...)):
             and resource.get("passage_schema_version") == PASSAGE_SCHEMA_VERSION
             and resource.get("passage_count", 0) > 0):
         return {"resource_id": resource_id, "passage_count": resource["passage_count"], "changed": False}
-    await reserve_request()
+    await limiter.reserve()
     prepared = await run_processing(prepare_document, contents, suffix)
     fields = await publish_document(resource, prepared)
     return {"resource_id": resource_id, "passage_count": fields["passage_count"], "changed": True}

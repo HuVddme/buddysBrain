@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from bson import ObjectId
+from fastapi import Request
 import pytest
 
 from app.models import SearchQuery
@@ -156,7 +157,8 @@ def test_search_worker_does_not_block_event_loop(monkeypatch, db):
     monkeypatch.setattr(search, "get_embedding", slow_embedding)
     monkeypatch.setattr(search, "summarize_resources", lambda docs, query: "answer")
     async def exercise():
-        task = asyncio.create_task(search.vector_search_and_summarize(SearchQuery(query="test")))
+        request = Request({'type': 'http', 'method': 'POST', 'path': '/search', 'headers': [], 'client': ('127.0.0.1', 1234)})
+        task = asyncio.create_task(search.vector_search_and_summarize(SearchQuery(query="test"), request))
         try:
             for _ in range(100):
                 if started.is_set():

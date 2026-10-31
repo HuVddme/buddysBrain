@@ -225,10 +225,40 @@ Invalid question/metadata requests return HTTP 422 before quota reservation or
 processing. Existing library records remain readable under their original schema.
 
 `LIVE_REQUESTS_PER_MINUTE=12` and `LIVE_REQUESTS_PER_DAY=100` are the backend
-defaults. These are shared across all visitors, not per-user quotas. Each search,
+global defaults, shared across all visitors. Each search,
 link submission or file upload reserves one unit before expensive work; a bulk
 submission reserves one unit per resource. Set either limit to `0` to block live
 work. Invalid settings or an unavailable quota database fail closed.
+
+Public requests also have persistent per-visitor limits, checked **before** global
+reservation so a blocked visitor cannot keep spending the shared allowance:
+
+| Setting | Default |
+| --- | --- |
+| `VISITOR_REQUESTS_PER_MINUTE` | 4 |
+| `VISITOR_REQUESTS_PER_DAY` | 20 |
+| `VISITOR_SUBMISSIONS_PER_MINUTE` | 2 |
+| `VISITOR_SUBMISSIONS_PER_DAY` | 5 |
+
+Searches, link/file submissions and public job retries count toward visitor limits.
+Submissions and retries also count toward the stricter submission limits. Trusted
+admin operations use the global allowance only. HTTP 429 responses identify the
+limit and include `Retry-After`; the frontend already displays these messages.
+
+Without accounts, a visitor means an IP/network: shared Wi-Fi/NAT users share a
+bucket, and IPv6 addresses are grouped by /64. This discourages abuse but cannot
+identify someone who switches networks. The backend uses Vercel's
+[`x-vercel-forwarded-for` header](https://vercel.com/docs/headers/request-headers#x-vercel-forwarded-for)
+only when running on Vercel. Other deployments use the direct peer address and
+ignore forwarded headers; configure any trusted reverse proxy at the server layer.
+Missing/malformed platform identity fails closed instead of choosing an arbitrary
+header. Non-IP local transports share one fallback bucket.
+
+Only an HMAC of the normalized address is stored in quota keys, not the raw IP.
+`VISITOR_RATE_LIMIT_SECRET` can supply a dedicated secret; otherwise the backend
+uses the existing `RESOURCE_ADMIN_TOKEN`. With neither set, public requests fail
+closed. Changing the hashing secret resets visitor buckets but not global caps.
+No additional environment change is needed on the existing deployment.
 
 Counters live in the separate MongoDB `usage_limits` collection, with conditional
 atomic updates on unique `_id` keys. They survive restarts and are shared by
@@ -237,13 +267,13 @@ the database user needs permission to create that index. Old counters expire aft
 their window plus one day, and delayed TTL cleanup does not affect resets.
 
 These are fixed calendar-minute and UTC-day windows, not rolling limits. Attempts,
-including processing failures, count; a rejected daily reservation can still
-consume a minute reservation. Limits are checked before processing, and exhausted
+including processing failures, count; a later rejected reservation can still
+consume earlier visitor/minute reservations. Limits are checked before processing, and exhausted
 allowances return HTTP 429 with `Retry-After`. Browser cancellations do not refund
 reservations or guarantee cancellation of backend work already started.
 
 This bounds accepted operations, **not dollar spend**: token usage varies and SDK
-retries may make additional provider calls. There is no per-person fairness or
+retries may make additional provider calls. There is no account-based fairness or
 concurrency cap yet. Keep conservative limits for the initial public launch and
 measure real usage before raising them. The quota tests use an atomic in-memory
 Mongo test double; multi-process Mongo behavior and TTL cleanup still need a live
