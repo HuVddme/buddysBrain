@@ -37,6 +37,10 @@ task is required. Queues is a beta platform dependency.
 2. Deploy the code with `DOCUMENT_INGESTION_ENABLED` unset/false. The existing
    upload behavior remains available until activation. The Python subscriber
    entrypoint is registered in `backend/pyproject.toml`.
+   The API service must use `entrypoint: "pyproject.toml"`; `[tool.vercel]`
+   declares the web app and `[[tool.vercel.subscribers]]` declares the worker.
+   A direct `vercel_app:app` service entrypoint builds only the web function,
+   silently omitting subscribers in Services mode.
 3. Run `python -m scripts.ingestion migrate` from `backend` with the database URL
    in your private environment. Alternatively, send an authenticated POST to
    `/api/admin/ingestion/setup` using the existing `RESOURCE_ADMIN_TOKEN`.

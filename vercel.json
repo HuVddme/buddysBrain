@@ -8,7 +8,7 @@
       "root": "backend",
       "framework": "fastapi",
       "runtime": "python",
-      "entrypoint": "vercel_app:app"
+      "entrypoint": "pyproject.toml"
     },
     "web": {
       "root": "frontend",

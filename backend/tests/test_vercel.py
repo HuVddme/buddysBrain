@@ -4,6 +4,7 @@ import sys
 from types import ModuleType
 from unittest.mock import Mock
 import tomllib
+import json
 
 from fastapi.testclient import TestClient
 
@@ -67,6 +68,16 @@ def test_uv_and_pip_dependency_lists_match():
                 for line in (root / name).read_text().splitlines()
                 if line and not line.startswith(("-r", "#"))}
     assert set(config["project"]["dependencies"]) == pip_deps
+
+
+def test_services_build_declares_both_api_and_queue_worker():
+    root = Path(__file__).resolve().parents[1]
+    services = json.loads((root.parent / 'vercel.json').read_text())['services']
+    config = tomllib.loads((root / 'pyproject.toml').read_text())['tool']['vercel']
+    # Direct Python entrypoints in Services silently exclude subscriber declarations.
+    assert services['api']['entrypoint'] == 'pyproject.toml'
+    assert config['entrypoint'] == 'vercel_app:app'
+    assert config['subscribers'] == [{'entrypoint': 'app.ingestion_subscriber'}]
 
 
 def test_embedding_load_is_lazy_reused_and_keeps_existing_model(monkeypatch):

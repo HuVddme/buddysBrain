@@ -37,5 +37,8 @@ name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
+[tool.vercel]
+entrypoint = "vercel_app:app"
+
 [[tool.vercel.subscribers]]
 entrypoint = "app.ingestion_subscriber"
