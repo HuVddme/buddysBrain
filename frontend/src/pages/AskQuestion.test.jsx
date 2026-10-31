@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import axios from 'axios';
@@ -66,4 +66,83 @@ test('missing API configuration does not request an undefined address', async ()
   expect(screen.getByText('Demo · saved examples')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Ask live' }).disabled).toBe(true);
   expect(axios.post).not.toHaveBeenCalled();
+});
+
+function sourcedAnswer(title, passage, summary = `${title} answer [P1]`) {
+  return { data: { summary, results: [{
+    // The same document may be retrieved with different excerpts in later turns.
+    _id: 'shared-notes', title, summary: `${title} saved summary`, media_type: 'article',
+    media_link: `https://example.com/${title.toLowerCase()}`,
+    passages: [{ citation: 'P1', page: 1, text: passage }],
+  }] } };
+}
+
+test('consecutive answers retain their own P1 passages and resource details', async () => {
+  axios.post.mockResolvedValueOnce(sourcedAnswer('Juniper', 'Maple is removed from the queue.'));
+  let resolveSecond;
+  axios.post.mockImplementationOnce(() => new Promise(resolve => { resolveSecond = resolve; }));
+  const user = renderPage();
+  await user.type(screen.getByLabelText('Your question'), 'Which item is removed?{Enter}');
+  const first = await screen.findByRole('article', { name: 'Answer to: Which item is removed?' });
+  await user.click(within(first).getByText('Sources for this answer (1)'));
+  expect(within(first).getByText('[P1] Original document passage · Page 1')).toBeTruthy();
+  expect(within(first).getByText('Maple is removed from the queue.')).toBeTruthy();
+
+  await user.type(screen.getByLabelText('Your question'), 'What is the acceleration?{Enter}');
+  expect(within(first).getByText('Maple is removed from the queue.')).toBeTruthy();
+  resolveSecond(sourcedAnswer('Differentiation', 'Acceleration is six metres per second squared.'));
+  const second = await screen.findByRole('article', { name: 'Answer to: What is the acceleration?' });
+  await user.click(within(second).getByText('Sources for this answer (1)'));
+  expect(within(second).getByText('[P1] Original document passage · Page 1')).toBeTruthy();
+  expect(within(second).getByText('Acceleration is six metres per second squared.')).toBeTruthy();
+  expect(within(first).queryByText('Acceleration is six metres per second squared.')).toBeNull();
+  expect(within(second).queryByText('Maple is removed from the queue.')).toBeNull();
+  expect(within(first).getByRole('link', { name: 'View Resource' }).getAttribute('href')).toBe('https://example.com/juniper');
+  await user.click(within(first).getByRole('button', { name: 'View details for Juniper' }));
+  expect(screen.getByRole('link', { name: 'Open Juniper in a new tab' }).getAttribute('href')).toBe('https://example.com/juniper');
+  expect(screen.getByText('Juniper saved summary')).toBeTruthy();
+});
+
+test.each(['no matches', 'request failure'])('a later %s does not remove earlier sources', async (outcome) => {
+  axios.post.mockResolvedValueOnce(sourcedAnswer('Juniper', 'Maple is removed.'));
+  if (outcome === 'no matches') {
+    axios.post.mockResolvedValueOnce({ data: { summary: 'General knowledge answer.', results: [] } });
+  } else {
+    axios.post.mockRejectedValueOnce({ response: { status: 503, data: { detail: 'Service unavailable.' } } });
+  }
+  const user = renderPage();
+  await user.type(screen.getByLabelText('Your question'), 'Queue question{Enter}');
+  const first = await screen.findByRole('article', { name: 'Answer to: Queue question' });
+  await user.click(within(first).getByText('Sources for this answer (1)'));
+  await user.type(screen.getByLabelText('Your question'), 'Another question{Enter}');
+  const second = await screen.findByRole('article', { name: 'Answer to: Another question' });
+  expect(within(first).getByText('Maple is removed.')).toBeTruthy();
+  expect(within(second).queryByText('Maple is removed.')).toBeNull();
+  expect(within(second).queryByText('Sources for this answer (1)')).toBeNull();
+  if (outcome === 'no matches') {
+    expect(within(second).getByText('No internal resources matched this question.')).toBeTruthy();
+  } else {
+    expect(within(second).getByText('Service unavailable.')).toBeTruthy();
+    expect(within(second).queryByText('No internal resources matched this question.')).toBeNull();
+  }
+});
+
+test('AI fallback evidence survives a successful retry of the same question', async () => {
+  const fallback = sourcedAnswer('Juniper', 'The original retrieved passage.', null);
+  fallback.data.answer_status = 'unavailable';
+  fallback.data.error = { message: 'AI timed out.' };
+  fallback.data.retrieval_notice = 'Some passages could not be searched.';
+  axios.post.mockResolvedValueOnce(fallback).mockResolvedValueOnce(sourcedAnswer('Juniper', 'A newly retrieved passage.'));
+  const user = renderPage();
+  await user.type(screen.getByLabelText('Your question'), 'Queue question{Enter}');
+  const first = await screen.findByRole('article', { name: 'Answer to: Queue question' });
+  expect(within(first).getByText('Sources for this answer (1)').closest('details').open).toBe(true);
+  await user.click(screen.getByRole('button', { name: 'Ask Buddy' }));
+  await screen.findByText('Juniper answer [P1]');
+  const [original, retry] = screen.getAllByRole('article', { name: 'Answer to: Queue question' });
+  expect(within(original).getByText('The original retrieved passage.')).toBeTruthy();
+  expect(within(original).getByRole('status').textContent).toBe('Some passages could not be searched.');
+  await user.click(within(retry).getByText('Sources for this answer (1)'));
+  expect(within(retry).getByText('A newly retrieved passage.')).toBeTruthy();
+  expect(within(retry).queryByRole('status')).toBeNull();
 });

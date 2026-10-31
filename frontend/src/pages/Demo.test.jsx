@@ -104,7 +104,7 @@ test('original passages and page citations remain readable when AI fails', async
   expect(screen.getByLabelText('Your question').value).toBe('Can Cedar delete documents?');
 });
 
-test('passage indexing notice is visible and clears for the next question', async () => {
+test('passage indexing notice stays with the answer it applies to', async () => {
   vi.stubEnv('VITE_ENABLE_LIVE', 'true');
   vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test');
   const notice = 'Original passages are not available in search yet.';
@@ -115,7 +115,8 @@ test('passage indexing notice is visible and clears for the next question', asyn
   axios.post.mockResolvedValueOnce({ data: { summary: 'Next answer.', results: [] } });
   await user.type(screen.getByLabelText('Your question'), 'Next question{Enter}');
   expect(await screen.findByText('Next answer.')).toBeTruthy();
-  expect(screen.queryByText(notice)).toBeNull();
+  expect(screen.getByText(notice).closest('[role="article"]').getAttribute('aria-label')).toBe('Answer to: Cedar?');
+  expect(screen.getByRole('article', { name: 'Answer to: Next question' }).textContent).not.toContain(notice);
 });
 
 test.each([

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import AnswerSources from './AnswerSources';
 import { FaMicrophone, FaStop, FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
 import { apiBaseUrl, serviceError, LIVE_TIMEOUT_MS } from '../lib/liveService';
 
@@ -9,13 +10,10 @@ const LiveQuestion = () => {
   const [question, setQuestion] = useState('');
   const [recording, setRecording] = useState(false);
   const [messages, setMessages] = useState([]);
-  const [results, setResults] = useState([]);
-  const [retrievalNotice, setRetrievalNotice] = useState('');
   const [selectedResult, setSelectedResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [speechError, setSpeechError] = useState('');
-  const [hasSearchResult, setHasSearchResult] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState(null);
 
   const recognitionRef = useRef(null);
@@ -101,9 +99,6 @@ const LiveQuestion = () => {
     setMessages(prev => [...prev, userMessage]);
 
     setIsLoading(true);
-    setHasSearchResult(false);
-    setResults([]);
-    setRetrievalNotice('');
     setSelectedResult(null);
     setQuestion('');
 
@@ -120,22 +115,24 @@ const LiveQuestion = () => {
       if (data.answer_status !== 'unavailable' && (typeof data.summary !== 'string' || !data.summary.trim())) {
         throw new Error('Invalid answer');
       }
-      setResults(data.results);
-      setRetrievalNotice(typeof data.retrieval_notice === 'string' ? data.retrieval_notice : '');
-      setHasSearchResult(true);
+      // Keep the evidence snapshot with its answer; citation labels restart per response.
+      const evidence = {
+        question: userMessage.text, results: data.results,
+        retrievalNotice: typeof data.retrieval_notice === 'string' ? data.retrieval_notice : '',
+      };
       if (data.answer_status === 'unavailable') {
         const explanation = typeof data.error?.message === 'string' ? data.error.message : 'AI could not generate an answer.';
-        setMessages(prev => [...prev, { sender: 'buddy', isError: true,
+        setMessages(prev => [...prev, { sender: 'buddy', isError: true, ...evidence,
           text: `${explanation} Retrieved sources are available below.` }]);
         setQuestion(userMessage.text);
       } else {
-        const buddyResponse = { sender: 'buddy', text: data.summary };
+        const buddyResponse = { sender: 'buddy', text: data.summary, ...evidence };
         setMessages(prev => [...prev, buddyResponse]);
         try { speakMessage(buddyResponse.text); } catch { /* Speech is optional. */ }
       }
     } catch (error) {
       if (error.code === 'ERR_CANCELED') return;
-      setMessages(prev => [...prev, { sender: 'buddy', isError: true, text: serviceError(error) }]);
+      setMessages(prev => [...prev, { sender: 'buddy', isError: true, question: userMessage.text, text: serviceError(error) }]);
       setQuestion(userMessage.text);
     } finally {
       setIsLoading(false);
@@ -279,79 +276,24 @@ const LiveQuestion = () => {
             </div>
           ) : (
             messages.map((msg, index) => (
-              <div key={index} className={`chat-message ${msg.sender}`}>
+              <div key={index} className={`chat-message ${msg.sender}`}
+                role={msg.sender === 'buddy' ? 'article' : undefined}
+                aria-label={msg.sender === 'buddy' ? `Answer to: ${msg.question}` : undefined}>
                 <div className="message-header">
                   <strong>{msg.sender === 'user' ? 'You' : msg.isError ? 'Service notice' : 'Buddy the Bison'}</strong>
                 </div>
                 <div className="message-content">
                   {renderMessageWithLinks(msg.text)}
                 </div>
+                {msg.results && (
+                  <AnswerSources results={msg.results} retrievalNotice={msg.retrievalNotice}
+                    isError={msg.isError} onViewDetails={handleResultClick} />
+                )}
 
               </div>
             ))
           )}
         </div>
-
-        {retrievalNotice && <p role="status" className="no-results-notice">{retrievalNotice}</p>}
-        {results.length > 0 ? (
-          <div className="results-container">
-            <h2>Retrieved resources</h2>
-            <p>Original document passages and saved summaries are labeled separately below.</p>
-            <div className="results-scroll">
-              <ul>
-                {results.map((item) => (
-                  <li
-                    key={item._id}
-                    className="result-item hover-highlight"
-                  >
-                    <h3 className="result-title">{item.title}</h3>
-                    {item.passages?.length ? (
-                      <div className="source-passages">
-                        {item.passages.map(passage => (
-                          <div key={passage.citation}>
-                            <p className="passage-label">[{passage.citation}] Original document passage
-                              {passage.page != null && ` · Page ${passage.page}`}</p>
-                            <blockquote>{passage.text}</blockquote>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <>
-                        <p className="passage-label">Saved summary · not an original passage</p>
-                        <p className="resource-summary">{item.summary}</p>
-                      </>
-                    )}
-                    <button type="button" className="resource-details" onClick={() => handleResultClick(item)}>View details for {item.title}</button>
-                    <p className="result-type">
-                      {item.media_type === 'document' && '📄 Document'}
-                      {item.media_type === 'image' && '🖼️ Image'}
-                      {item.media_type === 'video' && '🎬 Video'}
-                      {item.media_type === 'article' && '📰 Article'}
-                    </p>
-                    <a
-                      href={item.media_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="result-link"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      View Resource
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        ) : (
-          hasSearchResult && !isLoading && (
-            <div className="no-results-notice">
-              <p>
-                No internal resources matched this question.
-              </p>
-            </div>
-          )
-        )}
-
 
       </div> {/* .content */}
 

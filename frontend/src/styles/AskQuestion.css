@@ -338,6 +338,21 @@ h1 {
 }
 
 /* List Reset */
+.answer-sources {
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.answer-sources > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.answer-sources .results-scroll {
+  max-height: none;
+  overflow: visible;
+}
+
 .results-container ul {
   list-style: none;
   padding-left: 0;
