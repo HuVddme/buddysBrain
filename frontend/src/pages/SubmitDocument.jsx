@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { apiBaseUrl, serviceError, uploadLimitBytes, LIVE_TIMEOUT_MS } from '../lib/liveService';
 import "../styles/SubmitDocument.css";
 import "../styles/Demo.css";
@@ -7,7 +7,8 @@ import axios from 'axios';
 import SubmittedPage from './SubmittedPage';
 import DocumentJob from './DocumentJob';
 
-function savedJob() {
+function savedJob(jobId) {
+  if (/^[a-f0-9-]{36}$/.test(jobId)) return { job_id: jobId };
   try {
     const saved = JSON.parse(sessionStorage.getItem('document-job'));
     return saved?.apiBase === apiBaseUrl() && /^[a-f0-9-]{36}$/.test(saved?.job?.job_id) ? saved.job : null;
@@ -15,6 +16,7 @@ function savedJob() {
 }
 
 const SubmitDocumentPage = () => {
+  const [params, setParams] = useSearchParams();
   const [mediaType, setMediaType] = useState('');
   const [description, setDescription] = useState('');
   const [courseName, setCourseName] = useState('');
@@ -24,7 +26,7 @@ const SubmitDocumentPage = () => {
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [job, setJob] = useState(savedJob);
+  const [job, setJob] = useState(() => savedJob(params.get('job')));
   const busy = useRef(false);
   const API_BASE_URL = apiBaseUrl();
 
@@ -80,6 +82,7 @@ const SubmitDocumentPage = () => {
         });
         if (data?.job_id) {
           setJob(data);
+          setParams({ job: data.job_id }, { replace: true });
           try { sessionStorage.setItem('document-job', JSON.stringify({ apiBase: API_BASE_URL, job: { job_id: data.job_id } })); } catch { /* Storage may be disabled. */ }
           return;
         }
@@ -114,6 +117,7 @@ const SubmitDocumentPage = () => {
       {job ? (
         <DocumentJob initialJob={job} apiBase={API_BASE_URL} onNewUpload={() => {
           setJob(null);
+          setParams({}, { replace: true });
           setUploadFile(null);
           try { sessionStorage.removeItem('document-job'); } catch { /* Storage may be disabled. */ }
         }} />

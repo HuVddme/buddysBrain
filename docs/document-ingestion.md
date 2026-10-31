@@ -72,6 +72,8 @@ uploads first if preserving cross-path deduplication is essential.
 
 All paths are prefixed with `/api` on Vercel. The browser stores only the latest
 job ID in session storage so refreshing/returning in the same tab resumes status.
+The status URL `/submit?job=<job_id>` can also be bookmarked; it is a public status
+page for this shared library, not an authorization mechanism for private documents.
 Successful processing means the document and passages were saved; Atlas may take
 a short time to index them for retrieval.
 

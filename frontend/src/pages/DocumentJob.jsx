@@ -59,7 +59,7 @@ export default function DocumentJob({ initialJob, apiBase, onNewUpload }) {
       <h1>{job.title || 'Your document'}</h1>
       <p role="status" aria-live="polite">{labels[job.status] || 'Checking processing status…'}</p>
       {initialJob.duplicate && <p>This file was already submitted. We’re showing its existing processing result.</p>}
-      {pending.includes(job.status) && <p>Your upload is saved. You can leave this page and return in this tab to check progress.</p>}
+      {pending.includes(job.status) && <p>Your upload is saved. Bookmark this page to check progress later.</p>}
       {job.dispatch_pending && <p>Processing has not started yet. Your saved upload is safe.</p>}
       {job.error && <p role="alert">{job.error.message}</p>}
       {error && <p role="alert">{error}</p>}

@@ -65,3 +65,10 @@ test('cancelled or permanent failures do not offer a retry', async () => {
   expect(await screen.findByText('No readable text')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Retry processing' })).toBeNull();
 });
+
+test('a bookmarked job status opens without uploading again', async () => {
+  axios.get.mockResolvedValue({ data: { ...job, status: 'succeeded' } });
+  render(<MemoryRouter initialEntries={[`/submit?job=${job.job_id}`]}><SubmitDocument /></MemoryRouter>);
+  expect(await screen.findByText('Document added to the library')).toBeTruthy();
+  expect(axios.post).not.toHaveBeenCalled();
+});
