@@ -885,7 +885,8 @@
     margin-top: 14px;
   }
   .demo-answer blockquote,
-  .source-passages blockquote {
+  .source-passages blockquote,
+  .preview-passages blockquote {
     border-left: 3px solid var(--brand);
     padding: 14px 16px;
     border-radius: 0 12px 12px 0;
@@ -893,6 +894,8 @@
     font-size: 12px;
     line-height: 1.95;
   }
+  .preview-passages figure + figure { margin-top: 18px; }
+  .preview-passages figcaption { margin-bottom: 7px; color: var(--muted); font-size: 11px; }
   .demo-answer figcaption {
     padding: 8px 0 0 16px;
     color: var(--muted);
