@@ -4,7 +4,7 @@ import { useWindowSize } from 'react-use';
 import { Link } from 'react-router-dom';
 import "../styles/SubmittedPage.css";
 
-const SubmittedPage = ({ title = '' }) => {
+const SubmittedPage = ({ title = '', duplicate = false }) => {
   // Capture window size for Confetti
   const { width, height } = useWindowSize();
   const [showConfetti, setShowConfetti] = useState(true);
@@ -24,15 +24,15 @@ const SubmittedPage = ({ title = '' }) => {
       
       <div className="content animate-slide-in">
         <div className="success-icon">✓</div>
-        <h1>Success!</h1>
+        <h1>{duplicate ? 'Already in the library' : 'Resource saved'}</h1>
         
         <div className="typewriter-text">
-          {title ? `"${title}" has been submitted!` : 'Your upload has been submitted!'}
+          {title ? `"${title}" is in the library.` : 'Your resource is in the library.'}
         </div>
         
         <p className="success-message">
-          Thank you for contributing to our learning resources. 
-          Your submission is now being processed and will be available soon.
+          {duplicate ? 'This file was already added. We kept the existing resource without creating a duplicate.'
+            : 'Processing is complete. Search indexing may take a short time to catch up.'}
         </p>
         
         <div className="buttons-row">
@@ -43,7 +43,7 @@ const SubmittedPage = ({ title = '' }) => {
           >
             Submit Another
           </Link>
-          <Link to="/ask" className="button-link">Ask Buddy</Link>
+          <Link to="/ask?mode=live" className="button-link">Ask Buddy</Link>
         </div>
       </div>
     </div>

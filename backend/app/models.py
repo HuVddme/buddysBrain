@@ -28,6 +28,10 @@ class ResourceOut(ResourceModel):
     }
 
 
+class UploadResourceOut(ResourceOut):
+    duplicate: bool = False
+
+
 ResourceTitle = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 ResourceDescription = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
 ResourceCourse = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import AnswerSources from './AnswerSources';
+import { youtubeEmbedUrl } from '../lib/youtube';
 import { FaMicrophone, FaStop, FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
 import { apiBaseUrl, serviceError, LIVE_TIMEOUT_MS } from '../lib/liveService';
 
@@ -15,6 +16,7 @@ const LiveQuestion = () => {
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [speechError, setSpeechError] = useState('');
   const [selectedVoice, setSelectedVoice] = useState(null);
+  const videoPreviewUrl = selectedResult?.media_type === 'video' ? youtubeEmbedUrl(selectedResult.media_link) : null;
 
   const recognitionRef = useRef(null);
   const requestBusyRef = useRef(false);
@@ -332,11 +334,11 @@ const LiveQuestion = () => {
                 />
               )}
 
-              {selectedResult.media_type === 'video' && selectedResult.media_link.includes('youtube.com') && (
+              {videoPreviewUrl && (
                 <iframe
                   width="100%"
                   height="400px"
-                  src={`https://www.youtube.com/embed/${new URL(selectedResult.media_link).searchParams.get('v')}`}
+                  src={videoPreviewUrl}
                   title="YouTube Video"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -345,15 +347,8 @@ const LiveQuestion = () => {
                 />
               )}
 
-              {selectedResult.media_type === 'video' && !selectedResult.media_link.includes('youtube.com') && (
-                <video
-                  controls
-                  width="100%"
-                  style={{ borderRadius: '8px', maxHeight: '400px' }}
-                >
-                  <source src={selectedResult.media_link} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
+              {selectedResult.media_type === 'video' && !videoPreviewUrl && (
+                <p>Preview unavailable for this video. Use Open Resource to view the original.</p>
               )}
             </div>
 

@@ -7,6 +7,7 @@ import DocumentJob from './DocumentJob';
 import SubmitDocument from './SubmitDocument';
 
 vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('react-confetti', () => ({ default: () => null }));
 const job = { job_id: 'bbad0267-68bc-4f52-a777-4b1e8731ed96', title: 'Notes', status: 'queued', retry_available: false };
 
 beforeEach(() => {
@@ -44,6 +45,22 @@ test('accepted upload shows waiting status rather than success', async () => {
   expect(await screen.findByText('Upload saved — waiting to process')).toBeTruthy();
   expect(screen.queryByText('Document added to the library')).toBeNull();
   await waitFor(() => expect(axios.get).toHaveBeenCalledOnce());
+});
+
+test.each([false, true])('completed upload uses the saved title and live link (duplicate=%s)', async duplicate => {
+  axios.post.mockResolvedValue({ data: { _id: 'saved-id', title: 'Original saved title', duplicate } });
+  const user = userEvent.setup();
+  render(<MemoryRouter><SubmitDocument /></MemoryRouter>);
+  await user.type(screen.getByLabelText('Title:'), 'A newly typed title');
+  await user.selectOptions(screen.getByLabelText('Media Type:'), 'document');
+  await user.upload(screen.getByLabelText('Document:'), new File(['notes'], 'notes.txt', { type: 'text/plain' }));
+  await user.type(screen.getByLabelText('Course Name:'), 'CS101');
+  await user.type(screen.getByLabelText('Description:'), 'Notes');
+  await user.click(screen.getByRole('button', { name: 'Submit' }));
+  expect(await screen.findByRole('heading', { name: duplicate ? 'Already in the library' : 'Resource saved' })).toBeTruthy();
+  expect(screen.getByText('"Original saved title" is in the library.')).toBeTruthy();
+  expect(screen.queryByText(/being processed/)).toBeNull();
+  expect(screen.getByRole('link', { name: 'Ask Buddy' }).getAttribute('href')).toBe('/ask?mode=live');
 });
 
 test('failed job retries the saved upload without uploading its file again', async () => {

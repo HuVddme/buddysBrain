@@ -66,7 +66,8 @@ const SubmitDocumentPage = () => {
           media_link: uploadLink,
           course: courseName
         };
-        await axios.post(`${API_BASE_URL}/resources`, payload, { timeout: LIVE_TIMEOUT_MS });
+        const { data } = await axios.post(`${API_BASE_URL}/resources`, payload, { timeout: LIVE_TIMEOUT_MS });
+        setSubmitted(data);
         
       } else {
         const formData = new FormData();
@@ -84,9 +85,8 @@ const SubmitDocumentPage = () => {
           try { sessionStorage.setItem('document-job', JSON.stringify({ apiBase: API_BASE_URL, job: { job_id: data.job_id } })); } catch { /* Storage may be disabled. */ }
           return;
         }
+        setSubmitted(data);
       }
-
-      setSubmitted(true);
     } catch (err) {
       setError(serviceError(err));
     } finally {
@@ -120,7 +120,7 @@ const SubmitDocumentPage = () => {
           try { sessionStorage.removeItem('document-job'); } catch { /* Storage may be disabled. */ }
         }} />
       ) : submitted ? (
-        <SubmittedPage title={title} />
+        <SubmittedPage title={submitted.title || title} duplicate={submitted.duplicate} />
       ) : (
         <div className="content">
           <h1>Help Buddy Help You!</h1>

@@ -12,7 +12,7 @@ from ..auth import require_resource_admin
 from ..usage import limiter, reserve_request
 from ..database import collection, passage_collection
 from pymongo.errors import PyMongoError
-from ..models import ResourceCreate, ResourceTitle, ResourceDescription, ResourceCourse, ResourceModel, ResourceOut
+from ..models import ResourceCreate, ResourceTitle, ResourceDescription, ResourceCourse, ResourceModel, ResourceOut, UploadResourceOut
 from ..services.embeddings import get_embedding
 from ..utils.objectid import serialize_mongo_doc
 from ..services.processing import run_processing
@@ -141,7 +141,7 @@ async def upload_and_create_resource(
         # Already-migrated legacy documents have a content hash too.
         existing = await collection.find_one({'source_sha256': sha256(contents).hexdigest(), 'media_type': 'document'})
         if existing:
-            return ResourceOut.model_validate(serialize_mongo_doc(existing))
+            return UploadResourceOut.model_validate({**serialize_mongo_doc(existing), 'duplicate': True})
         state = await jobs.enqueue(contents, suffix, title, description, course)
         if state['status'] in ('queued', 'retrying', 'processing'):
             state['dispatch_pending'] = not await dispatch(state['job_id'])

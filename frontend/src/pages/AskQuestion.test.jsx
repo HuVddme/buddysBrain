@@ -77,6 +77,23 @@ function sourcedAnswer(title, passage, summary = `${title} answer [P1]`) {
   }] } };
 }
 
+test.each(['https://youtu.be/abcdefghijk', 'https://youtube.com/shorts/abcdefghijk', 'invalid-youtube.com'])('video detail preview handles %s', async url => {
+  const answer = sourcedAnswer('Video', 'Source text');
+  answer.data.results[0].media_type = 'video';
+  answer.data.results[0].media_link = url;
+  axios.post.mockResolvedValueOnce(answer);
+  const user = renderPage();
+  await user.type(screen.getByLabelText('Your question'), 'Explain the video{Enter}');
+  await user.click(await screen.findByText('Sources for this answer (1)'));
+  await user.click(screen.getByRole('button', { name: 'View details for Video' }));
+  if (url.startsWith('https:')) {
+    expect(screen.getByTitle('YouTube Video').getAttribute('src')).toBe('https://www.youtube.com/embed/abcdefghijk');
+  } else {
+    expect(screen.queryByTitle('YouTube Video')).toBeNull();
+    expect(screen.getByText('Preview unavailable for this video. Use Open Resource to view the original.')).toBeTruthy();
+  }
+});
+
 test('consecutive answers retain their own P1 passages and resource details', async () => {
   axios.post.mockResolvedValueOnce(sourcedAnswer('Juniper', 'Maple is removed from the queue.'));
   let resolveSecond;

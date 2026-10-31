@@ -47,6 +47,22 @@ def test_upload_enqueues_without_processing(client, monkeypatch, db):
     db.insert_one.assert_not_called()
 
 
+def test_completed_duplicate_returns_existing_title_and_duplicate_flag(client, monkeypatch, db):
+    from bson import ObjectId
+    monkeypatch.setenv('DOCUMENT_INGESTION_ENABLED', 'true')
+    db.find_one.return_value = {'_id': ObjectId(), 'title': 'Original title', 'description': 'Notes',
+                               'course': 'CS', 'media_type': 'document', 'media_link': 'https://example.com/file'}
+    enqueue = AsyncMock()
+    monkeypatch.setattr(jobs, 'enqueue', enqueue)
+    response = client.post('/upload', data={'title': 'New title', 'description': 'Notes', 'course': 'CS'},
+                           files={'file': ('notes.txt', b'notes')})
+    assert response.status_code == 200
+    assert response.json()['duplicate'] is True
+    assert response.json()['title'] == 'Original title'
+    enqueue.assert_not_called()
+    db.insert_one.assert_not_called()
+
+
 @pytest.mark.parametrize('filename,content,status_code', [('empty.txt', b'', 422), ('notes.exe', b'bad', 415)])
 def test_invalid_upload_never_queues(client, monkeypatch, filename, content, status_code):
     monkeypatch.setenv('DOCUMENT_INGESTION_ENABLED', 'true')
