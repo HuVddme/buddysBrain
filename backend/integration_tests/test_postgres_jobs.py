@@ -184,3 +184,64 @@ def test_recovery_cannot_replace_file(contents, suffix):
         assert error.value.status_code == 409
         assert (await jobs.status(original['job_id']))['status'] == 'failed'
     asyncio.run(run())
+
+
+@pytest.mark.parametrize('retryable,attempts,retained', [(False, 1, False), (True, 5, False), (True, 1, True)])
+def test_failed_job_payload_cleanup(retryable, attempts, retained):
+    async def run():
+        await upload()
+        row = await jobs.claim()
+        await jobs.checkpoint(row, {'summary': 'extracted private text'})
+        async with jobs.connection() as conn:
+            await conn.execute('UPDATE ingestion_jobs SET attempts=%s', (attempts,))
+        row['attempts'] = attempts
+        await jobs.fail(row, 'Processing failed', 'test_failure', retryable)
+        async with jobs.connection() as conn:
+            saved = await (await conn.execute('SELECT source_bytes, checkpoint, retryable FROM ingestion_jobs')).fetchone()
+        assert (saved['source_bytes'] is not None) is retained
+        assert (saved['checkpoint'] is not None) is retained
+        assert saved['retryable'] is retained
+        duplicate = await upload()
+        assert duplicate['duplicate'] and duplicate['job_id'] == str(row['id'])
+    asyncio.run(run())
+
+
+def test_retention_clears_checkpoint_only_rows_and_preserves_active_lease():
+    async def run():
+        old = await upload()
+        active = await upload(b'active document')
+        async with jobs.connection() as conn:
+            await conn.execute("""UPDATE ingestion_jobs SET status='failed', source_bytes=NULL,
+                checkpoint='{"summary":"leftover text"}', updated_at=now()-interval '8 days' WHERE id=%s""", (old['job_id'],))
+            await conn.execute("""UPDATE ingestion_jobs SET status='processing',
+                lease_until=now()+interval '5 minutes', updated_at=now()-interval '8 days' WHERE id=%s""", (active['job_id'],))
+        await jobs.pending_ids()
+        async with jobs.connection() as conn:
+            rows = await (await conn.execute('SELECT id, source_bytes, checkpoint, status FROM ingestion_jobs')).fetchall()
+        by_id = {str(r['id']): r for r in rows}
+        assert by_id[old['job_id']]['source_bytes'] is None
+        assert by_id[old['job_id']]['checkpoint'] is None
+        assert by_id[active['job_id']]['status'] == 'processing'
+        assert by_id[active['job_id']]['source_bytes'] is not None
+    asyncio.run(run())
+
+
+def test_exhausted_crash_clears_payload_and_stale_failure_cannot_clear_new_owner():
+    async def run():
+        await upload()
+        old = await jobs.claim()
+        await jobs.checkpoint(old, {'summary': 'retained'})
+        async with jobs.connection() as conn:
+            await conn.execute("UPDATE ingestion_jobs SET lease_until=now()-interval '1 second'")
+        new = await jobs.claim()
+        await jobs.fail(old, 'stale', 'stale', False)
+        async with jobs.connection() as conn:
+            saved = await (await conn.execute('SELECT source_bytes, checkpoint FROM ingestion_jobs')).fetchone()
+            assert saved['source_bytes'] is not None and saved['checkpoint'] is not None
+            await conn.execute("UPDATE ingestion_jobs SET attempts=5, lease_until=now()-interval '1 second'")
+        assert await jobs.claim() is None
+        async with jobs.connection() as conn:
+            saved = await (await conn.execute('SELECT source_bytes, checkpoint FROM ingestion_jobs')).fetchone()
+        assert saved == {'source_bytes': None, 'checkpoint': None}
+        assert (await jobs.status(new['id']))['status'] == 'failed'
+    asyncio.run(run())

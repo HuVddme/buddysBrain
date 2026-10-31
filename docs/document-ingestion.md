@@ -129,7 +129,10 @@ not restore administratively deleted resources and does not require a migration.
   This is bounded eventual recovery, not a promise of immediate processing.
 - Source bytes are limited to 4 MB on Vercel (10 MiB elsewhere). They are held in
   PostgreSQL intentionally for atomic admission at this small scale, then cleared
-  on success or permanent parsing failure. Abandoned inputs/checkpoints expire
+  together with checkpoints on success, permanent failure, or retry exhaustion
+  (including a fifth crashed attempt). Retryable failures retain both so they can
+  resume safely. The retention sweep also clears historical checkpoint-only rows.
+  Abandoned inputs/checkpoints expire
   after seven days without progress during reconciliation; recovery starts a new
   retention window without changing the original creation time. Small dedup/status records are retained.
   For larger volume, move staged bytes to private object storage with an outbox.

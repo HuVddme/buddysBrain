@@ -141,7 +141,7 @@ async def claim(job_id=None):
         # Bound crash retries too: never leave a fifth crashed attempt stuck forever.
         await conn.execute("""UPDATE ingestion_jobs SET status = 'failed', retryable = false,
             error_code = 'attempts_exhausted', error_message = 'Processing stopped after repeated interruptions. Contact the site owner.',
-            lease_token = NULL, lease_until = NULL, updated_at = now()
+            lease_token = NULL, lease_until = NULL, source_bytes = NULL, checkpoint = NULL, updated_at = now()
             WHERE status = 'processing' AND lease_until < now() AND attempts >= 5""")
         row = await (await conn.execute("""
             SELECT * FROM ingestion_jobs WHERE attempts < 5 AND
@@ -180,15 +180,17 @@ async def checkpoint(job, result):
 
 
 async def fail(job, message, code, retryable):
-    automatically_retry = retryable and job['attempts'] < 3
+    can_retry = retryable and job['attempts'] < MAX_ATTEMPTS
+    automatically_retry = can_retry and job['attempts'] < 3
     async with connection() as conn:
         await conn.execute("""UPDATE ingestion_jobs SET status = %s, error_message = %s,
             error_code = %s, retryable = %s, lease_token = NULL, lease_until = NULL,
             available_at = now() + interval '60 seconds', updated_at = now(),
-            source_bytes = CASE WHEN %s THEN source_bytes ELSE NULL END
+            source_bytes = CASE WHEN %s THEN source_bytes ELSE NULL END,
+            checkpoint = CASE WHEN %s THEN checkpoint ELSE NULL END
             WHERE id = %s AND lease_token = %s AND status = 'processing' AND lease_until > now()
         """, ('retrying' if automatically_retry else 'failed', message, code,
-              retryable and job['attempts'] < MAX_ATTEMPTS, retryable, job['id'], job['lease_token']))
+              can_retry, can_retry, can_retry, job['id'], job['lease_token']))
 
 
 async def finish(job, publish):
@@ -230,7 +232,8 @@ async def pending_ids():
             error_code = 'expired', error_message = 'The processing window expired. Contact the site owner.',
             updated_at = now() WHERE status NOT IN ('succeeded', 'cancelled')
             AND updated_at < now() - interval '7 days' AND
-            (status != 'processing' OR lease_until < now()) AND source_bytes IS NOT NULL""")
+            (status != 'processing' OR lease_until < now())
+            AND (source_bytes IS NOT NULL OR checkpoint IS NOT NULL)""")
         rows = await (await conn.execute("""SELECT id FROM ingestion_jobs
             WHERE (status IN ('queued', 'retrying') AND available_at <= now())
                OR (status = 'processing' AND lease_until < now())
