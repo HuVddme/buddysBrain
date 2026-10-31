@@ -21,6 +21,23 @@ function show(initial = job) {
   render(<MemoryRouter><DocumentJob initialJob={initial} apiBase="/api" onNewUpload={vi.fn()} /></MemoryRouter>);
 }
 
+test('link submissions send only fields accepted by the validated API', async () => {
+  axios.post.mockRejectedValue({ response: { status: 503, data: { detail: 'Service unavailable' } } });
+  render(<MemoryRouter><SubmitDocument /></MemoryRouter>);
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText('Title:'), 'Heaps');
+  await user.selectOptions(screen.getByLabelText('Media Type:'), 'article');
+  await user.type(screen.getByLabelText('Article URL:'), 'https://example.com/heaps');
+  await user.type(screen.getByLabelText('Course Name:'), 'CS101');
+  await user.type(screen.getByLabelText('Description:'), 'Study notes');
+  await user.click(screen.getByRole('button', { name: 'Submit' }));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Service unavailable');
+  expect(axios.post).toHaveBeenCalledWith('/api/resources', {
+    title: 'Heaps', media_type: 'article', media_link: 'https://example.com/heaps',
+    course: 'CS101', description: 'Study notes',
+  }, { timeout: 90000 });
+});
+
 test('accepted upload shows waiting status rather than success', async () => {
   axios.get.mockResolvedValue({ data: job });
   show();

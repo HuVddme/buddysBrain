@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pymongo.errors import PyMongoError
 from ..models import SearchQuery
 from ..services.embeddings import get_embedding
@@ -13,8 +13,9 @@ from ..services.retrieval import passage_pipeline, group_passages, combine_evide
 
 router = APIRouter()
 
-@router.post("/search", dependencies=[Depends(reserve_request)])
+@router.post("/search")
 async def vector_search_and_summarize(payload: SearchQuery):
+    await reserve_request()
     query_vector = await run_processing(get_embedding, payload.query)
 
     pipeline = [

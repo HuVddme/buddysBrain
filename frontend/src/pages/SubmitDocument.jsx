@@ -64,8 +64,7 @@ const SubmitDocumentPage = () => {
           description,
           media_type: mediaType,
           media_link: uploadLink,
-          course: courseName,
-          summary: description
+          course: courseName
         };
         await axios.post(`${API_BASE_URL}/resources`, payload, { timeout: LIVE_TIMEOUT_MS });
         
@@ -75,7 +74,6 @@ const SubmitDocumentPage = () => {
         formData.append('title', title);
         formData.append('description', description);
         formData.append('course', courseName);
-        formData.append('summary', description);
 
         const { data } = await axios.post(`${API_BASE_URL}/upload`, formData, {
           timeout: LIVE_TIMEOUT_MS,

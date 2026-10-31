@@ -215,6 +215,15 @@ create duplicate resources or re-upload files to Cloudinary.
 
 ### Live usage allowance
 
+The backend trims questions and requires 1–2,000 characters. Resource titles and
+courses require 1–200 characters, and descriptions require 1–4,000, after trimming.
+These metadata rules apply to single links, bulk links, and document/image uploads.
+Link submissions accept only `article` or `video` and HTTP/HTTPS URLs up to 2,048
+characters; documents and images use the upload endpoint. Unknown JSON fields,
+including caller-supplied summaries, embeddings and timestamps, are rejected.
+Invalid question/metadata requests return HTTP 422 before quota reservation or
+processing. Existing library records remain readable under their original schema.
+
 `LIVE_REQUESTS_PER_MINUTE=12` and `LIVE_REQUESTS_PER_DAY=100` are the backend
 defaults. These are shared across all visitors, not per-user quotas. Each search,
 link submission or file upload reserves one unit before expensive work; a bulk

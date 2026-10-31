@@ -28,9 +28,9 @@ def test_failed_summary_is_not_embedded_or_saved(client, db, monkeypatch, failur
     embedding.assert_not_called()
 
 
-def test_rejected_url_is_a_400_not_a_saved_fallback(client, db):
+def test_rejected_url_is_a_422_not_a_saved_fallback(client, db):
     response = client.post("/resources", json={**PAYLOAD, "media_link": "file:///etc/passwd"})
-    assert response.status_code == 400
+    assert response.status_code == 422
     db.insert_one.assert_not_called()
 
 

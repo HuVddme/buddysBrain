@@ -12,7 +12,7 @@ from ..auth import require_resource_admin
 from ..usage import limiter, reserve_request
 from ..database import collection, passage_collection
 from pymongo.errors import PyMongoError
-from ..models import BulkResourceCreate, ResourceModel, ResourceOut
+from ..models import ResourceCreate, ResourceTitle, ResourceDescription, ResourceCourse, ResourceModel, ResourceOut
 from ..services.embeddings import get_embedding
 from ..utils.objectid import serialize_mongo_doc
 from ..services.processing import run_processing
@@ -28,18 +28,18 @@ DOCUMENT_EXTENSIONS = {".pdf", ".txt", ".docx"}
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 
-@router.post("/resources", response_model=ResourceOut, dependencies=[Depends(reserve_request)])
-async def create_resource(resource: ResourceModel):
-    resource_dict = resource.model_dump()
+@router.post("/resources", response_model=ResourceOut)
+async def create_resource(resource: ResourceCreate):
+    await reserve_request()
     summary, embedding = await run_processing(summarize_link, resource.media_type, resource.media_link)
-    resource_dict.update(summary=summary, embedding=embedding)
+    resource_dict = ResourceModel(**resource.model_dump(), summary=summary, embedding=embedding).model_dump()
     result = await collection.insert_one(resource_dict)
     created = await collection.find_one({"_id": result.inserted_id})
     return ResourceOut.model_validate(serialize_mongo_doc(created))
 
 
 @router.post("/resources/bulk", response_model=list[ResourceOut], dependencies=[Depends(require_resource_admin)])
-async def create_bulk_resources(resources: Annotated[list[BulkResourceCreate], Body(min_length=1, max_length=200)]):
+async def create_bulk_resources(resources: Annotated[list[ResourceCreate], Body(min_length=1, max_length=200)]):
     await limiter.reserve(cost=len(resources))
     resource_dicts = []
     for resource in resources:
@@ -122,10 +122,11 @@ async def read_upload(file):
     return contents
 
 
-@router.post("/upload", dependencies=[Depends(reserve_request)])
+@router.post("/upload")
 async def upload_and_create_resource(
-    response: Response, file: UploadFile = File(...), title: str = Form(..., min_length=1, max_length=200),
-    description: str = Form(..., min_length=1, max_length=4000), course: str = Form(..., min_length=1, max_length=200),
+    response: Response, file: Annotated[UploadFile, File()],
+    title: Annotated[ResourceTitle, Form()], description: Annotated[ResourceDescription, Form()],
+    course: Annotated[ResourceCourse, Form()],
 ):
     suffix = Path(file.filename or "").suffix.lower()
     if suffix in DOCUMENT_EXTENSIONS:
@@ -135,14 +136,13 @@ async def upload_and_create_resource(
     else:
         raise HTTPException(415, "Supported files: PDF, DOCX, TXT, PNG, JPEG, WEBP and GIF.")
     contents = await read_upload(file)
+    await reserve_request()
     if media_type == 'document' and jobs.enabled():
-        if not all(value.strip() for value in (title, description, course)):
-            raise HTTPException(422, 'Title, description and course must not be blank.')
         # Already-migrated legacy documents have a content hash too.
         existing = await collection.find_one({'source_sha256': sha256(contents).hexdigest(), 'media_type': 'document'})
         if existing:
             return ResourceOut.model_validate(serialize_mongo_doc(existing))
-        state = await jobs.enqueue(contents, suffix, title.strip(), description.strip(), course.strip())
+        state = await jobs.enqueue(contents, suffix, title, description, course)
         if state['status'] in ('queued', 'retrying', 'processing'):
             state['dispatch_pending'] = not await dispatch(state['job_id'])
         response.status_code = 202 if state['status'] != 'succeeded' else 200

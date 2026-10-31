@@ -1,6 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, TypeAdapter, field_validator
-from typing import List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints, TypeAdapter, field_validator
+from typing import Annotated, List, Literal, Optional
 from .utils.objectid import PyObjectId
 from bson import ObjectId
 
@@ -28,16 +28,21 @@ class ResourceOut(ResourceModel):
     }
 
 
-class BulkResourceCreate(BaseModel):
-    """Admin link imports; derived content must come from backend processing."""
+ResourceTitle = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+ResourceDescription = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+ResourceCourse = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class ResourceCreate(BaseModel):
+    """Validated link input, separate from stored/legacy resource responses."""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    title: str = Field(min_length=1, max_length=200)
-    description: str = Field(min_length=1, max_length=4000)
+    title: ResourceTitle
+    description: ResourceDescription
     media_type: Literal["article", "video"]
     media_link: str = Field(min_length=1, max_length=2048)
-    course: str = Field(min_length=1, max_length=200)
+    course: ResourceCourse
 
     @field_validator("media_link", mode="before")
     @classmethod
@@ -52,4 +57,6 @@ class BulkResourceCreate(BaseModel):
         return str(url)
 
 class SearchQuery(BaseModel):
-    query: str
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    query: str = Field(min_length=1, max_length=2000)

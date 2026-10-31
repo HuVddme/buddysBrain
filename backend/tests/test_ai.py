@@ -142,7 +142,8 @@ def test_text_budget_boundary_and_literal_token_markers(provider):
 def test_oversized_question_fails_without_provider_call(client, db, provider):
     db.aggregate.return_value = EmptyCursor()
     response = client.post("/search", json={"query": "a" * ai.MAX_INPUT_TEXT_BYTES})
-    assert response.status_code == 413
+    assert response.status_code == 422
+    db.aggregate.assert_not_called()
     assert not provider.requests
 
 
