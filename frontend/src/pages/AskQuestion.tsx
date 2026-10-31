@@ -3,7 +3,10 @@ import DemoExplorer from "./DemoExplorer";
 import LiveQuestion from "./LiveQuestion";
 import { apiBaseUrl } from "../lib/liveService";
 import { PageHeader } from "../components/ui";
-import { FiBookOpen, FiMessageSquare } from "react-icons/fi";
+import {
+  BookOpen as FiBookOpen,
+  MessageSquare as FiMessageSquare,
+} from "lucide-react";
 
 export default function AskQuestionPage() {
   const [params, setParams] = useSearchParams();

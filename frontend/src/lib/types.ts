@@ -30,6 +30,7 @@ export interface IngestionJob {
   error?: { message: string };
 }
 export interface ChatMessage {
+  streaming?: boolean;
   sender: "user" | "buddy";
   text: string;
   question?: string;

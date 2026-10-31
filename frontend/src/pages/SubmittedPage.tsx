@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { FiCheck, FiArrowRight, FiPlus } from "react-icons/fi";
+import { ArrowRight as FiArrowRight, Plus as FiPlus } from "lucide-react";
+import Buddy, { Celebration } from "../components/Buddy";
 import { Button } from "../components/ui";
 
 export default function SubmittedPage({
@@ -13,10 +14,9 @@ export default function SubmittedPage({
 }) {
   return (
     <section className="completion-card">
-      <div className="completion-icon">
-        <FiCheck aria-hidden="true" />
-      </div>
-      <p className="eyebrow">READY FOR YOUR NEXT QUESTION</p>
+      {!duplicate && <Celebration />}
+      <Buddy mood="celebrating" size="hero" />
+      <p className="eyebrow">THANK YOU FOR SHARING</p>
       <h1>{duplicate ? "Already in the library" : "Resource saved"}</h1>
       <p className="completion-title">
         {title

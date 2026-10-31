@@ -1,6 +1,10 @@
 import { useState, useRef, type FormEvent, type ChangeEvent } from "react";
 import { PageHeader } from "../components/ui";
-import { FiFileText, FiCheck, FiArrowRight } from "react-icons/fi";
+import {
+  FileText as FiFileText,
+  Check as FiCheck,
+  ArrowRight as FiArrowRight,
+} from "lucide-react";
 import type { Resource, IngestionJob } from "../lib/types";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -10,6 +14,8 @@ import {
   LIVE_TIMEOUT_MS,
 } from "../lib/liveService";
 import axios from "axios";
+import Buddy from "../components/Buddy";
+import { usePreferences } from "../components/preferences";
 import SubmittedPage from "./SubmittedPage";
 import DocumentJob from "./DocumentJob";
 
@@ -27,6 +33,7 @@ function savedJob(jobId: string | null): IngestionJob | null {
 }
 
 const SubmitDocumentPage = () => {
+  const { playCompletion } = usePreferences();
   const [params, setParams] = useSearchParams();
   const [mediaType, setMediaType] = useState("");
   const [description, setDescription] = useState("");
@@ -92,6 +99,7 @@ const SubmitDocumentPage = () => {
           { timeout: LIVE_TIMEOUT_MS },
         );
         setSubmitted(data);
+        if (!data.duplicate) playCompletion();
       } else {
         const formData = new FormData();
         if (!uploadFile) return;
@@ -124,6 +132,7 @@ const SubmitDocumentPage = () => {
           return;
         }
         setSubmitted(data);
+        if (!data.duplicate) playCompletion();
       }
     } catch (err) {
       setError(serviceError(err));
@@ -140,6 +149,7 @@ const SubmitDocumentPage = () => {
   if (!API_BASE_URL)
     return (
       <section className="empty-panel">
+        <Buddy mood="curious" />
         <h1>Uploads are not enabled yet</h1>
         <p>
           You can explore the sample lessons now. Uploads will be available once
@@ -182,7 +192,7 @@ const SubmitDocumentPage = () => {
         <div>
           <PageHeader
             eyebrow="BUILD YOUR LIBRARY"
-            title="Good notes deserve good company."
+            title="Share a little wisdom."
           >
             Add a resource to the connected library, then ask Buddy about it.
           </PageHeader>
@@ -204,10 +214,14 @@ const SubmitDocumentPage = () => {
               >
                 {error && (
                   <p className="error" role="alert">
+                    <Buddy mood="curious" />
                     {error}
                   </p>
                 )}
                 <fieldset disabled={submitting} className="submission-fields">
+                  <p className="form-step">
+                    <span>1</span> Give it a name
+                  </p>
                   {/* Title */}
                   <div className="form-group-row">
                     <label htmlFor="title">Title:</label>
@@ -222,6 +236,9 @@ const SubmitDocumentPage = () => {
                     />
                   </div>
 
+                  <p className="form-step">
+                    <span>2</span> Choose your material
+                  </p>
                   {/* Media Type */}
                   <div className="form-group-row">
                     <label htmlFor="mediaType">Media Type:</label>
@@ -296,6 +313,9 @@ const SubmitDocumentPage = () => {
                     </div>
                   )}
 
+                  <p className="form-step">
+                    <span>3</span> Add a little context
+                  </p>
                   {/* Course */}
                   <div className="form-group-row">
                     <label htmlFor="courseName">Course Name:</label>
@@ -332,9 +352,38 @@ const SubmitDocumentPage = () => {
                     </button>
                   </div>
                 </fieldset>
+                {submitting && (
+                  <div className="thinking-state" role="status">
+                    <Buddy mood="thinking" />
+                    <div>
+                      <p>Buddy is saving your resource…</p>
+                      <div className="answer-skeleton" aria-hidden="true">
+                        <span />
+                        <span />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </form>
             </section>
             <aside className="submission-guide">
+              <section className="resource-draft" aria-label="Resource preview">
+                <span className="badge">Live preview · not submitted</span>
+                <FiFileText aria-hidden="true" />
+                <h3>{title.trim() || "Your resource title"}</h3>
+                <span className="draft-course">
+                  {courseName.trim() || "Course or subject"}
+                </span>
+                <p>
+                  {description.trim() ||
+                    "A short description helps others know what’s inside."}
+                </p>
+                <small>
+                  {uploadFile?.name ||
+                    uploadLink ||
+                    "Choose a file or add a link"}
+                </small>
+              </section>
               <p className="eyebrow">FROM NOTES TO KNOWLEDGE</p>
               <h2>What happens next?</h2>
               <ol>

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
-import { FiFileText, FiCheck } from "react-icons/fi";
+import Buddy, { Celebration } from "../components/Buddy";
+import { usePreferences } from "../components/preferences";
 import type { IngestionJob } from "../lib/types";
 import { serviceError } from "../lib/liveService";
 
@@ -25,6 +26,14 @@ export default function DocumentJob({
   onNewUpload: () => void;
 }) {
   const [job, setJob] = useState(initialJob);
+  const { playCompletion } = usePreferences();
+  const celebrated = useRef(initialJob.status === "succeeded");
+  useEffect(() => {
+    if (job.status === "succeeded" && !celebrated.current) {
+      celebrated.current = true;
+      playCompletion();
+    }
+  }, [job.status, playCompletion]);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [retrying, setRetrying] = useState(false);
@@ -77,19 +86,41 @@ export default function DocumentJob({
 
   return (
     <section className="job-card" aria-label="Document processing status">
-      <div className="completion-icon">
-        {job.status === "succeeded" ? (
-          <FiCheck aria-hidden="true" />
-        ) : (
-          <FiFileText aria-hidden="true" />
-        )}
-      </div>
+      <Buddy
+        mood={
+          job.status === "succeeded"
+            ? "celebrating"
+            : pending.includes(job.status || "")
+              ? "thinking"
+              : "curious"
+        }
+        size="hero"
+      />
+      {job.status === "succeeded" && <Celebration />}
       <p className="eyebrow">DOCUMENT PROGRESS</p>
       <h1>{job.title || "Your document"}</h1>
       <p role="status" aria-live="polite">
         {(job.status ? labels[job.status] : null) ||
           "Checking processing status…"}
       </p>
+      {pending.includes(job.status || "") && (
+        <div className="answer-skeleton" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      )}
+      <ol className="job-steps" aria-label="Processing steps">
+        <li data-complete="true">Saved</li>
+        <li
+          data-complete={
+            job.status === "processing" || job.status === "succeeded"
+          }
+        >
+          Processing
+        </li>
+        <li data-complete={job.status === "succeeded"}>Ready</li>
+      </ol>
       {initialJob.duplicate && (
         <p>
           This file was already submitted. We’re showing its existing processing

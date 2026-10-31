@@ -420,7 +420,23 @@ The application pages and shared components use React with TypeScript (`.tsx`).
 Tailwind CSS 4 is integrated through Vite; `src/styles/index.css` contains shared
 colors, layouts and component styles. `AppShell` provides navigation across the
 home, demo, live questions and submission flows. URL parameters preserve the
-selected demo lesson and asking mode across browser navigation.
+selected demo lesson, question and asking mode across browser navigation.
+
+The blue gradient, Poppins typography, pill buttons and Buddy mascot are shared
+across pages. The homepage keeps its typewriter greeting. Motion respects
+`prefers-reduced-motion`. Dark mode, the dismissible three-step tour and sample
+lesson progress are saved only in this browser. The header's speaker control
+opts into a quiet completion chime; sound and spoken answers both default off.
+Sample progress records viewed answers, not a measured learning score.
+
+Live questions request `text/event-stream` from the existing `/api/search`
+endpoint. It sends retrieved sources first, actual provider text deltas next,
+and an explicit completion event. Limits and retrieval still run before AI
+work. Interrupted answers are not marked complete; their retrieved sources
+remain available. Requests without the streaming Accept header retain the
+JSON API used by evaluation scripts. Navigation cancels the browser request,
+and server cancellation closes the provider stream. Citation chips open the
+specific answer's source snapshot in a keyboard-accessible side panel.
 
 `npm run build` runs strict TypeScript checks before bundling. Existing JavaScript
 helpers and test files remain supported with `allowJs`; they can be migrated

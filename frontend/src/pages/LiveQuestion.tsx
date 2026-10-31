@@ -1,13 +1,21 @@
 import { useState, useEffect, useRef } from "react";
-import { FiMessageSquare, FiArrowUp, FiBookOpen } from "react-icons/fi";
-import type { Resource, ChatMessage, SearchResponse } from "../lib/types";
-import axios from "axios";
+import { ArrowUp as FiArrowUp, BookOpen as FiBookOpen } from "lucide-react";
+import type { Resource, ChatMessage } from "../lib/types";
+import { searchWithStream } from "../lib/searchStream";
+import Buddy from "../components/Buddy";
+import { usePreferences } from "../components/preferences";
 import AnswerSources from "./AnswerSources";
 import { youtubeEmbedUrl } from "../lib/youtube";
-import { FaMicrophone, FaStop, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
-import { apiBaseUrl, serviceError, LIVE_TIMEOUT_MS } from "../lib/liveService";
+import {
+  Mic as FaMicrophone,
+  Square as FaStop,
+  Volume2 as FaVolumeUp,
+  VolumeX as FaVolumeMute,
+} from "lucide-react";
+import { apiBaseUrl, serviceError } from "../lib/liveService";
 
 const LiveQuestion = () => {
+  const { playCompletion } = usePreferences();
   const [question, setQuestion] = useState("");
   const [recording, setRecording] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -133,19 +141,28 @@ const LiveQuestion = () => {
     setSelectedResult(null);
     setQuestion("");
 
+    const answerIndex = messages.length + 1;
+    const replaceAnswer = (answer: ChatMessage) =>
+      setMessages((previous) => [...previous.slice(0, answerIndex), answer]);
     try {
       const API_BASE_URL = apiBaseUrl();
       if (!API_BASE_URL) throw new Error("Search service is not configured.");
-      const response = await axios.post<SearchResponse>(
-        `${API_BASE_URL}/search`,
-        {
-          query: userMessage.text,
+      const data = await searchWithStream(
+        API_BASE_URL,
+        userMessage.text,
+        requestAbortRef.current.signal,
+        (partial) => {
+          replaceAnswer({
+            sender: "buddy",
+            question: userMessage.text,
+            text: partial.summary || "",
+            results: partial.results,
+            retrievalNotice: partial.retrieval_notice,
+            streaming: true,
+          });
         },
-        { timeout: LIVE_TIMEOUT_MS, signal: requestAbortRef.current.signal },
       );
-
       if (requestAbortRef.current.signal.aborted) return;
-      const data = response.data;
       if (!data || !Array.isArray(data.results))
         throw new Error("Invalid search response");
       if (
@@ -168,15 +185,12 @@ const LiveQuestion = () => {
           typeof data.error?.message === "string"
             ? data.error.message
             : "AI could not generate an answer.";
-        setMessages((prev) => [
-          ...prev,
-          {
-            sender: "buddy",
-            isError: true,
-            ...evidence,
-            text: `${explanation} Retrieved sources are available below.`,
-          },
-        ]);
+        replaceAnswer({
+          sender: "buddy",
+          isError: true,
+          ...evidence,
+          text: `${explanation}${data.results.length ? " Retrieved sources are available below." : ""}`,
+        });
         setQuestion(userMessage.text);
       } else {
         const buddyResponse: ChatMessage = {
@@ -184,7 +198,8 @@ const LiveQuestion = () => {
           text: data.summary || "",
           ...evidence,
         };
-        setMessages((prev) => [...prev, buddyResponse]);
+        replaceAnswer(buddyResponse);
+        playCompletion();
         try {
           speakMessage(buddyResponse.text);
         } catch {
@@ -193,15 +208,12 @@ const LiveQuestion = () => {
       }
     } catch (error) {
       if ((error as { code?: string }).code === "ERR_CANCELED") return;
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "buddy",
-          isError: true,
-          question: userMessage.text,
-          text: serviceError(error),
-        },
-      ]);
+      replaceAnswer({
+        sender: "buddy",
+        isError: true,
+        question: userMessage.text,
+        text: serviceError(error),
+      });
       setQuestion(userMessage.text);
     } finally {
       setIsLoading(false);
@@ -285,13 +297,12 @@ const LiveQuestion = () => {
           className="chat-container"
           ref={chatContainerRef}
           role="log"
+          aria-live={isLoading ? "off" : "polite"}
           aria-label="Live conversation"
         >
           {messages.length === 0 ? (
             <div className="welcome-message">
-              <span className="empty-icon">
-                <FiMessageSquare aria-hidden="true" />
-              </span>
+              <Buddy mood="curious" />
               <h2>What’s on your mind?</h2>
               <p className="welcome-hint">
                 Ask a question about your course material. Buddy will look for
@@ -301,6 +312,7 @@ const LiveQuestion = () => {
                 {[
                   "Explain the difference between a heap and a binary search tree.",
                   "What makes a function continuous?",
+                  "Quiz me on binary heaps using the library notes.",
                 ].map((text) => (
                   <button
                     key={text}
@@ -334,6 +346,7 @@ const LiveQuestion = () => {
                 }
               >
                 <div className="message-header">
+                  {msg.isError && <Buddy mood="curious" />}
                   <strong>
                     {msg.sender === "user"
                       ? "You"
@@ -342,7 +355,9 @@ const LiveQuestion = () => {
                         : "Buddy the Bison"}
                   </strong>
                 </div>
-                <div className="message-content">
+                <div
+                  className={`message-content ${msg.streaming ? "is-streaming" : ""}`}
+                >
                   {renderMessageWithLinks(msg.text)}
                 </div>
                 {msg.results && (
@@ -356,100 +371,129 @@ const LiveQuestion = () => {
               </div>
             ))
           )}
-        </div>
-
-        <div className="audio-toggle">
-          <button
-            onClick={toggleAudio}
-            disabled={!audioSupported}
-            className="audio-btn"
-            aria-label={
-              audioEnabled
-                ? "Disable audio responses"
-                : "Enable audio responses"
-            }
-            title={
-              audioEnabled
-                ? "Disable audio responses"
-                : "Enable audio responses"
-            }
-          >
-            {audioEnabled ? (
-              <FaVolumeUp size={20} />
-            ) : (
-              <FaVolumeMute size={20} />
-            )}
-          </button>
-          <span className="audio-label">
-            {audioSupported && audioEnabled ? "Audio On" : "Audio Off"}
-          </span>
-        </div>
-
-        {/* Question form and mic button */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submitQuestion();
-          }}
-          className="form-container"
-        >
-          <div className="form-group">
-            <label htmlFor="question">Your question</label>
-            <input
-              id="question"
-              ref={questionInputRef}
-              className="question-input"
-              type="text"
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              placeholder="Ask about your course material..."
-              disabled={isLoading || recording}
-              maxLength={2000}
-              required
-            />
-            <div className="button-group">
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={isLoading || recording || !question.trim()}
-              >
-                {isLoading ? "Asking..." : "Ask Buddy"}
-                <FiArrowUp aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className={`record-btn ${recording ? "recording" : ""}`}
-                onClick={toggleRecording}
-                disabled={!speechSupported || isLoading}
-                aria-label={recording ? "Stop recording" : "Start recording"}
-              >
-                {recording ? <FaStop size={20} /> : <FaMicrophone size={20} />}
-              </button>
-            </div>
-          </div>
-        </form>
-
-        {speechError && <p role="status">{speechError}</p>}
-        {/* Recording indicator */}
-        <div className="recording-indicator">
-          {recording ? (
-            <div className="pulse-recording">
-              <div className="recording-animation"></div>
-              Recording in progress... Click the stop button when finished.
-            </div>
-          ) : (
-            <div>
-              {isLoading ? (
-                <div role="status" className="loading-spinner">
-                  Looking up your question...
-                </div>
-              ) : speechSupported ? (
-                "Type or record a question. Press Enter to send."
-              ) : (
-                "Press Enter to send. Check important facts against the sources."
-              )}
+          {isLoading && (
+            <div className="thinking-state" role="status">
+              <Buddy mood="thinking" />
+              <div>
+                <p>
+                  Buddy is thinking
+                  <span className="typing-dots" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                </p>
+                {!messages.at(-1)?.text ||
+                messages.at(-1)?.sender === "user" ? (
+                  <div className="answer-skeleton" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                ) : (
+                  <small>Building your answer…</small>
+                )}
+              </div>
             </div>
           )}
+        </div>
+
+        <div className="composer-dock">
+          <div className="audio-toggle">
+            <button
+              onClick={toggleAudio}
+              disabled={!audioSupported}
+              className="audio-btn"
+              aria-label={
+                audioEnabled
+                  ? "Disable audio responses"
+                  : "Enable audio responses"
+              }
+              title={
+                audioEnabled
+                  ? "Disable audio responses"
+                  : "Enable audio responses"
+              }
+            >
+              {audioEnabled ? (
+                <FaVolumeUp size={20} />
+              ) : (
+                <FaVolumeMute size={20} />
+              )}
+            </button>
+            <span className="audio-label">
+              {audioSupported && audioEnabled ? "Audio On" : "Audio Off"}
+            </span>
+          </div>
+
+          {/* Question form and mic button */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitQuestion();
+            }}
+            className="form-container"
+          >
+            <div className="form-group">
+              <label htmlFor="question">Your question</label>
+              <input
+                id="question"
+                ref={questionInputRef}
+                className="question-input"
+                type="text"
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                placeholder="Ask about your course material..."
+                disabled={isLoading || recording}
+                maxLength={2000}
+                required
+              />
+              <div className="button-group">
+                <button
+                  type="submit"
+                  className="submit-btn"
+                  disabled={isLoading || recording || !question.trim()}
+                >
+                  {isLoading ? "Asking..." : "Ask Buddy"}
+                  <FiArrowUp aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={`record-btn ${recording ? "recording" : ""}`}
+                  onClick={toggleRecording}
+                  disabled={!speechSupported || isLoading}
+                  aria-label={recording ? "Stop recording" : "Start recording"}
+                >
+                  {recording ? (
+                    <FaStop size={20} />
+                  ) : (
+                    <FaMicrophone size={20} />
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+
+          {speechError && <p role="status">{speechError}</p>}
+          {/* Recording indicator */}
+          <div className="recording-indicator">
+            {recording ? (
+              <div className="pulse-recording">
+                <div className="recording-animation"></div>
+                Recording in progress... Click the stop button when finished.
+              </div>
+            ) : (
+              <div>
+                {isLoading ? (
+                  <span>Looking for useful context…</span>
+                ) : speechSupported ? (
+                  "Type or record a question. Press Enter to send."
+                ) : (
+                  "Press Enter to send. Check important facts against the sources."
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>{" "}
       {/* .content */}
@@ -473,12 +517,20 @@ const LiveQuestion = () => {
               ×
             </button>
             <h2 id="resource-preview-title">{selectedResult.title}</h2>
-            <p className="result-type-badge">
-              {selectedResult.media_type === "document" && "📄 Document"}
-              {selectedResult.media_type === "image" && "🖼️ Image"}
-              {selectedResult.media_type === "video" && "🎬 Video"}
-              {selectedResult.media_type === "article" && "📰 Article"}
-            </p>
+            <p className="result-type-badge">{selectedResult.media_type}</p>
+            {selectedResult.passages?.length ? (
+              <section className="preview-passages">
+                <h3>Passages for this answer</h3>
+                {selectedResult.passages.map((p) => (
+                  <figure key={p.citation}>
+                    <figcaption>
+                      [{p.citation}]{p.page != null ? ` · Page ${p.page}` : ""}
+                    </figcaption>
+                    <blockquote>{p.text}</blockquote>
+                  </figure>
+                ))}
+              </section>
+            ) : null}
             <h3>Saved resource summary</h3>
             <p className="modal-summary">{selectedResult.summary}</p>
 

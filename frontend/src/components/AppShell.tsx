@@ -1,20 +1,26 @@
 import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import {
-  FiArrowUpRight,
-  FiBookOpen,
-  FiHome,
-  FiMessageSquare,
-  FiPlus,
-  FiChevronRight,
-} from "react-icons/fi";
+  BookOpen,
+  MessageCircle,
+  Upload,
+  ChevronRight,
+  Moon,
+  Sun,
+  Volume2,
+  VolumeX,
+  CircleHelp,
+  Home,
+} from "lucide-react";
 import { apiBaseUrl } from "../lib/liveService";
-import buddyLogo from "../assets/BuddysBirthday.png";
+import Buddy from "./Buddy";
+import { PreferencesProvider, usePreferences } from "./preferences";
 
-export default function AppShell() {
+function Shell() {
   const { pathname, search } = useLocation();
   const main = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
+  const { dark, sound, toggleDark, toggleSound } = usePreferences();
   const live = Boolean(apiBaseUrl());
   const mode = new URLSearchParams(search).get("mode");
   const section =
@@ -24,7 +30,7 @@ export default function AppShell() {
         ? mode === "live" && live
           ? "Ask live"
           : "Explore demo"
-        : "Overview";
+        : "Home";
   useEffect(() => {
     document.title = `${section} · Buddy’s Brain`;
     if (previousPath.current !== pathname) {
@@ -34,11 +40,10 @@ export default function AppShell() {
     }
   }, [pathname, section]);
   const links = [
-    { to: "/", name: "Overview", icon: FiHome, active: pathname === "/" },
     {
       to: "/ask",
       name: "Explore demo",
-      icon: FiBookOpen,
+      Icon: BookOpen,
       active: pathname === "/ask" && (mode !== "live" || !live),
     },
     ...(live
@@ -46,79 +51,104 @@ export default function AppShell() {
           {
             to: "/ask?mode=live",
             name: "Ask live",
-            icon: FiMessageSquare,
+            Icon: MessageCircle,
             active: pathname === "/ask" && mode === "live",
           },
           {
             to: "/submit",
             name: "Add a resource",
-            icon: FiPlus,
+            Icon: Upload,
             active: pathname === "/submit",
           },
         ]
       : []),
   ];
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${pathname === "/" ? "is-home" : ""}`}>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <aside className="sidebar">
+      <header className="site-header">
         <Link to="/" className="brand" aria-label="Buddy’s Brain home">
-          <img src={buddyLogo} alt="" />
-          <span>
-            buddy’s brain
-            <span className="brand-caption">A little clarity, every day.</span>
-          </span>
-        </Link>
-        <p className="nav-label">YOUR WORKSPACE</p>
-        <nav aria-label="Main navigation">
-          {links.map(({ to, name, icon: Icon, active }) => (
-            <Link
-              key={to}
-              to={to}
-              className={`nav-item ${active ? "active" : ""}`}
-              aria-current={active ? "page" : undefined}
-            >
-              <Icon aria-hidden="true" />
-              <span>{name}</span>
-              {active && (
-                <FiChevronRight className="nav-chevron" aria-hidden="true" />
-              )}
-            </Link>
-          ))}
-        </nav>
-        <div className="sidebar-note">
-          <FiBookOpen aria-hidden="true" />
-          <h2>Start with a small question.</h2>
-          <p>Good understanding grows one idea at a time.</p>
-          <Link to="/ask">
-            Try a sample lesson <FiArrowUpRight aria-hidden="true" />
-          </Link>
-        </div>
-        <div className="sidebar-footer">Made for curious minds.</div>
-      </aside>
-      <div className="workspace">
-        <div className="workspace-bar">
-          <span>
-            Workspace <FiChevronRight aria-hidden="true" />{" "}
-            <strong>{section}</strong>
-          </span>
-          <span className="workspace-tag">Your study companion</span>
-        </div>
-        <main
-          id="main-content"
-          ref={main}
-          tabIndex={-1}
-          className="workspace-main"
-        >
-          <Outlet />
-        </main>
-        <footer className="workspace-footer">
+          <Buddy />
           <span>Buddy’s Brain</span>
-          <span>Understand the answer. Explore the source.</span>
-        </footer>
-      </div>
+        </Link>
+        {pathname !== "/" && (
+          <nav aria-label="Main navigation">
+            {links.map(({ to, name, Icon, active }) => (
+              <Link
+                key={to}
+                to={to}
+                aria-current={active ? "page" : undefined}
+                className={`nav-item ${active ? "active" : ""}`}
+              >
+                <Icon aria-hidden="true" />
+                {name}
+              </Link>
+            ))}
+          </nav>
+        )}
+        <div className="header-tools">
+          <Link
+            className="icon-button"
+            to="/?tour=1"
+            aria-label="Replay quick tour"
+            title="Quick tour"
+          >
+            <CircleHelp />
+          </Link>
+          <button
+            className="icon-button"
+            onClick={toggleDark}
+            aria-label={dark ? "Use light mode" : "Use dark mode"}
+            title={dark ? "Use light mode" : "Use dark mode"}
+          >
+            {dark ? <Sun /> : <Moon />}
+          </button>
+          <button
+            className="icon-button"
+            onClick={toggleSound}
+            aria-pressed={sound}
+            aria-label={
+              sound ? "Turn completion sounds off" : "Turn completion sounds on"
+            }
+            title={`Completion sounds ${sound ? "on" : "off"}`}
+          >
+            {sound ? <Volume2 /> : <VolumeX />}
+          </button>
+        </div>
+      </header>
+      <main
+        id="main-content"
+        ref={main}
+        tabIndex={-1}
+        className={`workspace-main ${pathname === "/ask" && mode === "live" ? "chat-page" : ""}`}
+      >
+        {pathname !== "/" && (
+          <div className="breadcrumb">
+            <Link to="/">
+              <Home aria-hidden="true" />
+              Home
+            </Link>
+            <ChevronRight aria-hidden="true" />
+            <span>{section}</span>
+          </div>
+        )}
+        <div key={pathname} className="page-transition">
+          <Outlet />
+        </div>
+      </main>
+      <footer className="workspace-footer">
+        <span>Made for curious minds.</span>
+        <span>Buddy’s Brain</span>
+      </footer>
     </div>
+  );
+}
+export default function AppShell() {
+  return (
+    <PreferencesProvider>
+      <Shell />
+    </PreferencesProvider>
   );
 }

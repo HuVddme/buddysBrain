@@ -34,7 +34,7 @@ test('typed questions work without speech APIs and display the answer', async ()
   expect(screen.getByRole('button', { name: 'Start recording' }).disabled).toBe(true);
   await user.type(screen.getByLabelText('Your question'), 'What is a heap?{Enter}');
   expect(await screen.findByText('A heap is a tree.')).toBeTruthy();
-  expect(axios.post).toHaveBeenCalledWith('https://api.example.test/search', { query: 'What is a heap?' }, { timeout: 90000, signal: expect.any(AbortSignal) });
+  expect(axios.post).toHaveBeenCalledWith('https://api.example.test/search', { query: 'What is a heap?' }, expect.objectContaining({ timeout: 90000, signal: expect.any(AbortSignal), headers: {Accept:'text/event-stream'} }));
 });
 
 test('an in-flight question cannot be submitted twice', async () => {
@@ -167,4 +167,26 @@ test('AI fallback evidence survives a successful retry of the same question', as
   await user.click(within(retry).getByText('Sources for this answer (1)'));
   expect(within(retry).getByText('A newly retrieved passage.')).toBeTruthy();
   expect(within(retry).queryByRole('status')).toBeNull();
+});
+
+test('streamed text appears before completion and an interrupted answer keeps its own source chips', async()=>{
+ const encode=value=>`data: ${JSON.stringify(value)}\n\n`;
+ let resolve;
+ const resource=sourcedAnswer('Juniper','Original evidence.').data.results[0];
+ const partial=encode({type:'sources',results:[resource]})+encode({type:'delta',text:'An unfinished explanation'});
+ axios.post.mockImplementationOnce((_,__,options)=>{
+  options.onDownloadProgress({event:{target:{responseText:partial}}});
+  return new Promise(done=>{resolve=done;});
+ });
+ const user=renderPage();
+ await user.type(screen.getByLabelText('Your question'),'Juniper limits?{Enter}');
+ expect(await screen.findByText('An unfinished explanation')).toBeTruthy();
+ expect(screen.getByRole('button',{name:'Asking...'}).disabled).toBe(true);
+ resolve({data:partial+encode({type:'error',message:'The answer was interrupted.'})});
+ expect(await screen.findByText('The answer was interrupted. Retrieved sources are available below.')).toBeTruthy();
+ expect(screen.queryByText('An unfinished explanation')).toBeNull();
+ const answer=screen.getByRole('article',{name:'Answer to: Juniper limits?'});
+ await user.click(within(answer).getByRole('button',{name:/\[P1\].*Juniper/}));
+ expect(screen.getByRole('dialog').textContent).toContain('Original evidence.');
+ expect(axios.post).toHaveBeenCalledTimes(1);
 });

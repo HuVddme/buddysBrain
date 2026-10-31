@@ -1,6 +1,8 @@
 import asyncio
 import logging
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from ..services.answer_stream import search_events
 from pymongo.errors import PyMongoError
 from ..models import SearchQuery
 from ..services.embeddings import get_embedding
@@ -71,6 +73,10 @@ async def vector_search_and_summarize(payload: SearchQuery, request: Request):
         raise HTTPException(503, "The document search service is unavailable. Please try again later.",
                             headers={"X-Error-Code": "search_unavailable"})
     extra = {"retrieval_notice": notice} if notice else {}
+
+    if "text/event-stream" in request.headers.get("accept", ""):
+        return StreamingResponse(search_events(results, payload.query, extra), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no"})
 
     try:
         summary = await run_processing(summarize_resources, results, payload.query)

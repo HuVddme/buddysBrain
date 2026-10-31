@@ -1,158 +1,202 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
-  FiArrowRight,
-  FiArrowUpRight,
-  FiBookOpen,
-  FiMessageSquare,
-  FiPlus,
-  FiCheck,
-} from "react-icons/fi";
+  ArrowRight,
+  BookOpen,
+  MessageCircle,
+  Upload,
+  X,
+  RotateCcw,
+} from "lucide-react";
+import Buddy from "../components/Buddy";
 import { apiBaseUrl } from "../lib/liveService";
+import { readProgress } from "../lib/lessonProgress";
 import { lessons } from "../demo/lessons";
 
+const greeting = "What can Buddy do for you today?";
+const tourCopy = [
+  "Meet Buddy with a sample lesson. Choose a question and explore the notes behind its saved answer.",
+  "Ready for your own question? Ask live searches the shared library and shows sources alongside the answer.",
+  "Add a resource to help the library grow. Documents show their processing progress after you submit.",
+];
+function seenTour() {
+  try {
+    return localStorage.getItem("buddy:tour:v1") === "seen";
+  } catch {
+    return false;
+  }
+}
 export default function Home() {
+  const [typed, setTyped] = useState(() =>
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      ? greeting
+      : "",
+  );
+  const [params, setParams] = useSearchParams();
+  const [dismissed, setDismissed] = useState(seenTour);
+  const [step, setStep] = useState(0);
+  const [progress] = useState(readProgress);
   const live = Boolean(apiBaseUrl());
+  const lastLesson = lessons.find((l) => l.id === progress.lastLesson);
+  const showTour = !dismissed || params.get("tour") === "1";
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (media?.matches) return;
+    let index = 0;
+    const timer = setInterval(() => {
+      index++;
+      setTyped(greeting.slice(0, index));
+      if (index >= greeting.length) clearInterval(timer);
+    }, 75);
+    const reduce = () => {
+      if (media?.matches) {
+        clearInterval(timer);
+        setTyped(greeting);
+      }
+    };
+    media?.addEventListener("change", reduce);
+    return () => {
+      clearInterval(timer);
+      media?.removeEventListener("change", reduce);
+    };
+  }, []);
+  function finishTour() {
+    setDismissed(true);
+    setStep(0);
+    try {
+      localStorage.setItem("buddy:tour:v1", "seen");
+    } catch {
+      /* Optional preference. */
+    }
+    const next = new URLSearchParams(params);
+    next.delete("tour");
+    setParams(next, { replace: true });
+  }
+  const actions = [
+    {
+      name: "Explore demo",
+      to: "/ask",
+      description: "Sample lessons. Saved answers. No setup.",
+      Icon: BookOpen,
+    },
+    {
+      name: "Ask live",
+      to: "/ask?mode=live",
+      description: "Your questions, answered with library sources.",
+      Icon: MessageCircle,
+    },
+    {
+      name: "Add a resource",
+      to: "/submit",
+      description: "Share notes, an article, or a video.",
+      Icon: Upload,
+    },
+  ];
   return (
-    <div className="overview-page">
-      <section className="home-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">A SPACE TO MAKE SENSE OF THINGS</p>
-          <h1>
-            Less searching.
-            <br />
-            More <em>understanding.</em>
-          </h1>
-          <p>
-            Bring your course material and your curiosity. Buddy helps you
-            connect the ideas, with sources you can explore.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              className="btn btn-primary"
-              to={live ? "/ask?mode=live" : "/ask"}
-            >
-              {live ? "Ask Buddy" : "Explore demo"}
-              <FiArrowRight aria-hidden="true" />
-            </Link>
-            <Link className="btn btn-secondary" to={live ? "/submit" : "/ask"}>
-              {live ? "Add a resource" : "Try a sample lesson"}
-              <FiPlus aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
-        <div className="hero-example" aria-label="Saved sample answer preview">
-          <div className="example-top">
-            <FiBookOpen aria-hidden="true" />
-            <span>A MOMENT OF CLARITY</span>
-            <span className="example-dot" />
-          </div>
-          <p className="example-question">Is a min-heap a fully sorted tree?</p>
-          <div className="example-answer">
-            <span className="mini-avatar">b.</span>
-            <div>
-              <strong>Not quite.</strong>
-              <p>
-                The smallest value sits at the root. Each parent is no greater
-                than its children, but the rest of the tree doesn’t have to be
-                sorted.
-              </p>
-              <span className="source-chip">
-                <FiCheck aria-hidden="true" /> Binary heaps · paragraphs 1–2
-              </span>
-            </div>
-          </div>
-          <Link to="/ask?lesson=heaps">
-            Explore this saved example <FiArrowUpRight aria-hidden="true" />
-          </Link>
-        </div>
-      </section>
-      <section className="getting-started">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">FIND YOUR STARTING POINT</p>
-            <h2>A clearer way to study.</h2>
-          </div>
-          <span className="muted text-sm">
-            From a question to an explanation.
+    <section className="home-page">
+      <div className="home-card">
+        <Buddy size="hero" />
+        <h1>Welcome to Buddy’s Brain</h1>
+        <h2 className="typewriter-text">
+          <span className="sr-only">{greeting}</span>
+          <span aria-hidden="true">
+            {typed}
+            <span className="typing-cursor">|</span>
           </span>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link className="action-card" to="/ask">
-            <FiBookOpen className="card-icon" aria-hidden="true" />
-            <span className="card-number">01</span>
-            <h3>Try a sample lesson</h3>
-            <p>
-              See a saved answer alongside the notes that support it. No setup
-              needed.
-            </p>
-            <span className="card-link">
-              Explore demo <FiArrowRight aria-hidden="true" />
-            </span>
-          </Link>
-          {live ? (
-            <Link className="action-card" to="/ask?mode=live">
-              <FiMessageSquare className="card-icon" aria-hidden="true" />
-              <span className="card-number">02</span>
-              <h3>Ask your own question</h3>
+        </h2>
+        <div className="home-actions">
+          {actions.map(({ name, to, description, Icon }, index) => (
+            <div
+              key={to}
+              className={`home-action ${showTour && step === index ? "tour-highlight" : ""}`}
+            >
+              {index === 0 || live ? (
+                <Link
+                  className={`btn ${index === (live ? 1 : 0) ? "btn-primary" : "btn-secondary"}`}
+                  to={to}
+                >
+                  <Icon aria-hidden="true" />
+                  {name}
+                  <ArrowRight aria-hidden="true" />
+                </Link>
+              ) : (
+                <button className="btn btn-secondary" disabled>
+                  <Icon aria-hidden="true" />
+                  {name}
+                </button>
+              )}
               <p>
-                Search the connected library and get an explanation you can
-                follow.
-              </p>
-              <span className="card-link">
-                Ask live <FiArrowRight aria-hidden="true" />
-              </span>
-            </Link>
-          ) : (
-            <div className="action-card">
-              <FiMessageSquare className="card-icon" aria-hidden="true" />
-              <h3>Ask your own question</h3>
-              <p>
-                Live questions will be available when this workspace is
-                connected.
-              </p>
-              <span className="badge">Coming when connected</span>
-            </div>
-          )}
-          {live ? (
-            <Link className="action-card" to="/submit">
-              <FiPlus className="card-icon" aria-hidden="true" />
-              <span className="card-number">03</span>
-              <h3>Build the library</h3>
-              <p>
-                Add notes, an article, or a video to make more knowledge
-                searchable.
-              </p>
-              <span className="card-link">
-                Add a resource <FiArrowRight aria-hidden="true" />
-              </span>
-            </Link>
-          ) : (
-            <div className="action-card">
-              <FiPlus className="card-icon" aria-hidden="true" />
-              <h3>Build the library</h3>
-              <p>
-                Resource submissions will be available when the live service is
-                connected.
+                {index > 0 && !live
+                  ? "Available when the live service is connected."
+                  : description}
               </p>
             </div>
-          )}
-        </div>
-      </section>
-      <section className="sample-strip">
-        <div>
-          <p className="eyebrow">A LITTLE PRACTICE</p>
-          <h2>Something to get curious about.</h2>
-        </div>
-        <div className="sample-links">
-          {lessons.map((lesson) => (
-            <Link key={lesson.id} to={`/ask?lesson=${lesson.id}`}>
-              <span>{lesson.course}</span>
-              {lesson.title}
-              <FiArrowUpRight aria-hidden="true" />
-            </Link>
           ))}
         </div>
-      </section>
-    </div>
+        <p className="home-note">
+          A little curiosity. A clearer understanding.
+        </p>
+        {lastLesson && (
+          <Link
+            className="continue-card"
+            to={`/ask?lesson=${lastLesson.id}&question=${progress.lastQuestion ?? 0}`}
+          >
+            <RotateCcw aria-hidden="true" />
+            <span>
+              <strong>Continue where you left off</strong>
+              <small>
+                {lastLesson.title} ·{" "}
+                {progress.viewed[lastLesson.id]?.length || 0} of{" "}
+                {lastLesson.questions.length} answers explored
+              </small>
+            </span>
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        )}
+        {showTour && (
+          <aside
+            className="buddy-tour"
+            role="dialog"
+            aria-label="Meet Buddy: quick tour"
+          >
+            <Buddy mood="curious" />
+            <div aria-live="polite">
+              <p className="eyebrow">A QUICK HELLO · {step + 1} OF 3</p>
+              <h3>{actions[step].name}</h3>
+              <p>{tourCopy[step]}</p>
+              <div className="tour-controls">
+                <button className="text-button" onClick={finishTour}>
+                  Skip tour
+                </button>
+                {step > 0 && (
+                  <button
+                    className="text-button"
+                    onClick={() => setStep((s) => s - 1)}
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  className="btn btn-primary"
+                  onClick={() =>
+                    step === 2 ? finishTour() : setStep((s) => s + 1)
+                  }
+                >
+                  {step === 2 ? "Got it" : "Next"}
+                  <ArrowRight aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            <button
+              className="icon-button tour-close"
+              aria-label="Close tour"
+              onClick={finishTour}
+            >
+              <X />
+            </button>
+          </aside>
+        )}
+      </div>
+    </section>
   );
 }

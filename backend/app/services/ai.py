@@ -16,7 +16,7 @@ def validate_text_size(text: str) -> None:
         raise ProcessingError("The input contains too much text to process (400 KB maximum).", 413)
 
 
-def generate_summary(messages, max_output_tokens: int = 500) -> str:
+def completion_options(messages, max_output_tokens: int = 500) -> dict:
     model = os.getenv("OPENAI_MODEL", DEFAULT_MODEL).strip()
     effort = os.getenv("OPENAI_REASONING_EFFORT", "none").strip()
     if not model or effort not in REASONING_EFFORTS:
@@ -47,7 +47,11 @@ def generate_summary(messages, max_output_tokens: int = 500) -> str:
     }
     if effort == "none":
         options["temperature"] = 0.3
-    response = get_ai_client().chat.completions.create(**options)
+    return options
+
+
+def generate_summary(messages, max_output_tokens: int = 500) -> str:
+    response = get_ai_client().chat.completions.create(**completion_options(messages, max_output_tokens))
     if not response.choices:
         raise ProcessingError("AI returned no summary. Please try again.")
     choice = response.choices[0]
