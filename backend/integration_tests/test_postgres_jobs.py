@@ -165,7 +165,7 @@ def test_recovery_cannot_reset_active_completed_or_deleted_jobs(state):
     async def run():
         original = await upload()
         async with jobs.connection() as conn:
-            await conn.execute('UPDATE ingestion_jobs SET status=%s', (state,))
+            await conn.execute("UPDATE ingestion_jobs SET status=%s, lease_until=now()+interval '5 minutes'", (state,))
         with pytest.raises(HTTPException) as error:
             await jobs.recover(original['job_id'], b'original notes', '.txt')
         assert error.value.status_code == 409
