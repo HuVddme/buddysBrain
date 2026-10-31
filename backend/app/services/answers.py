@@ -1,4 +1,4 @@
-"""Answer generation from retrieved resource summaries."""
+"""Answer generation from original passages and explicitly labeled legacy summaries."""
 import json
 
 from .ai import generate_summary
@@ -25,19 +25,24 @@ def summarize_resources(json_data, query: str) -> str:
         )
     else:
         instructions += (
-            "The supplied summaries are search candidates, not necessarily relevant evidence. "
-            "Answer using only facts supported by these summaries. Name the supporting "
-            "resource title(s) in your answer. If they do not contain enough information, "
-            "say that the retrieved summaries do not provide the requested detail. "
+            "The supplied resources are search candidates, not necessarily relevant evidence. "
+            "Answer using only facts supported by the supplied passages or labeled summaries. "
+            "Cite the provided passage label, such as [P1], next to each supported claim and "
+            "name its resource title. For a legacy summary with no passages, name the title "
+            "and make clear it is a saved summary. Never invent citation labels or page numbers. "
+            "If the evidence is insufficient, say it does not provide the requested detail. "
             "For partially answerable questions, give the supported facts and state what "
             "is missing. Do not invent details, fill gaps with general knowledge, claim to "
             "have read the original files, or treat an old processing-error message as evidence."
         )
         prompt = json.dumps({
             "question": query,
-            "resource_summaries": [
-                {"title": resource.get("title") or "Untitled resource",
-                 "summary": resource.get("summary") or ""}
+            "resources": [
+                {"title": resource.get("title") or "Untitled resource", **(
+                    {"evidence_type": "original_passages", "passages": resource["passages"]}
+                    if resource.get("passages") else
+                    {"evidence_type": "saved_summary", "summary": resource.get("summary") or ""}
+                )}
                 for resource in json_data
             ],
         }, ensure_ascii=False)

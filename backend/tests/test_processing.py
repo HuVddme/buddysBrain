@@ -61,10 +61,10 @@ def test_summary_failure_cleans_temp_files_and_does_not_upload(client, db, monke
         paths.append(Path(path))
         assert Path(path).exists()
         raise processing.ProcessingError("The document has no readable text.", 422)
-    monkeypatch.setattr(ingestion, "summarize_document", failing_summary)
+    monkeypatch.setattr(ingestion, "summarize_image", failing_summary)
     cloud_upload = Mock()
     monkeypatch.setattr(ingestion.cloudinary.uploader, "upload", cloud_upload)
-    response = client.post("/upload", data={"title": "Test", "description": "Test", "course": "CS"}, files={"file": ("notes.txt", b"text")})
+    response = client.post("/upload", data={"title": "Test", "description": "Test", "course": "CS"}, files={"file": ("notes.png", b"image")})
     assert response.status_code == 422
     assert len(paths) == 1 and not paths[0].parent.exists()
     cloud_upload.assert_not_called()
@@ -76,14 +76,14 @@ def test_successful_upload_cleans_files_and_has_timeout(client, db, monkeypatch)
     def summary(path):
         paths.append(Path(path))
         return "Good summary"
-    monkeypatch.setattr(ingestion, "summarize_document", summary)
+    monkeypatch.setattr(ingestion, "summarize_image", summary)
     monkeypatch.setattr(ingestion.cloudinary, "config", lambda: SimpleNamespace(cloud_name="test", api_key="test", api_secret="test"))
     cloud_upload = Mock(return_value={"secure_url": "https://example.com/file.txt"})
     monkeypatch.setattr(ingestion.cloudinary.uploader, "upload", cloud_upload)
     resource_id = ObjectId()
     db.insert_one.return_value = SimpleNamespace(inserted_id=resource_id)
     db.find_one.return_value = {**PAYLOAD, "_id": resource_id}
-    response = client.post("/upload", data={"title": "Test", "description": "Test", "course": "CS"}, files={"file": ("notes.txt", b"text")})
+    response = client.post("/upload", data={"title": "Test", "description": "Test", "course": "CS"}, files={"file": ("notes.png", b"image")})
     assert response.status_code == 200, response.text
     assert not paths[0].parent.exists()
     assert cloud_upload.call_args.kwargs["timeout"] == 30
@@ -106,10 +106,10 @@ def test_embedding_failure_also_cleans_temporary_files(monkeypatch):
     def summarize(path):
         paths.append(Path(path))
         return "Summary"
-    monkeypatch.setattr(ingestion, "summarize_document", summarize)
+    monkeypatch.setattr(ingestion, "summarize_image", summarize)
     monkeypatch.setattr(ingestion, "get_embedding", Mock(side_effect=RuntimeError("embedding failed")))
     with pytest.raises(RuntimeError):
-        ingestion.process_upload(b"text", ".txt", "document")
+        ingestion.process_upload(b"image", ".png", "image")
     assert not paths[0].parent.exists()
 
 

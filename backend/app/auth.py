@@ -14,7 +14,7 @@ def require_resource_admin(
 ) -> None:
     expected = os.getenv("RESOURCE_ADMIN_TOKEN", "")
     if not expected:
-        raise HTTPException(503, "Resource deletion is not configured.")
+        raise HTTPException(503, "Resource administration is not configured.")
     if credentials is None or not compare_digest(
         credentials.credentials.encode(), expected.encode()
     ):

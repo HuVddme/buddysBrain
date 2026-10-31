@@ -2,6 +2,7 @@
 import os
 import socket
 import sys
+from threading import Lock
 from types import ModuleType
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -11,9 +12,12 @@ from fastapi.testclient import TestClient
 database = ModuleType("app.database")
 database.collection = Mock()
 database.usage_collection = Mock()
+database.passage_collection = Mock()
 sys.modules["app.database"] = database
 embeddings = ModuleType("app.services.embeddings")
 embeddings.get_embedding = Mock(return_value=[0.1, 0.2])
+embeddings.get_embedding_model = Mock()
+embeddings._model_lock = Lock()
 sys.modules["app.services.embeddings"] = embeddings
 
 with patch.dict(os.environ, {"FRONTEND_ORIGINS": "http://localhost:5173"}):
@@ -35,6 +39,21 @@ def isolated(monkeypatch):
     # the real reservation method and exercise rejection before paid work.
     from app.usage import limiter
     monkeypatch.setattr(limiter, "reserve", AsyncMock())
+    class EmptyCursor:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    passage_store = Mock()
+    passage_store.aggregate.return_value = EmptyCursor()
+    passage_store.delete_many = AsyncMock()
+    passage_store.insert_many = AsyncMock()
+    from app.services import passage_store as publication
+    from app.routes import passage_admin
+    for module in (search, resources, publication, passage_admin):
+        monkeypatch.setattr(module, "passage_collection", passage_store)
     from app.services.processing import get_ai_client
     get_ai_client.cache_clear()
     yield
@@ -48,8 +67,11 @@ def db(monkeypatch):
     collection.insert_many = AsyncMock()
     collection.find_one = AsyncMock()
     collection.delete_one = AsyncMock()
+    collection.update_one = AsyncMock()
     monkeypatch.setattr(resources, "collection", collection)
     monkeypatch.setattr(search, "collection", collection)
+    from app.services import passage_store
+    monkeypatch.setattr(passage_store, "collection", collection)
     return collection
 
 

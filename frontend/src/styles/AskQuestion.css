@@ -559,3 +559,17 @@ h1 {
 .message-link:hover {
   color: #0f5bb5;
 }
+.source-passages blockquote {
+  margin: 0.5rem 0 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid currentColor;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.passage-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+}

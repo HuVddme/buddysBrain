@@ -79,11 +79,43 @@ test('explicit live mode preserves sources and question when AI generation fails
   const user = renderPage();
   await user.click(screen.getByRole('button', { name: 'Ask live' }));
   await user.type(screen.getByLabelText('Your question'), 'Explain limits{Enter}');
-  expect(await screen.findByText('AI processing timed out. Retrieved resource summaries are available below.')).toBeTruthy();
+  expect(await screen.findByText('AI processing timed out. Retrieved sources are available below.')).toBeTruthy();
   expect(screen.getByText('A saved resource summary.')).toBeTruthy();
   expect(screen.getByLabelText('Your question').value).toBe('Explain limits');
-  expect(screen.getByText('Saved resource summaries, not verbatim passages from the original files.')).toBeTruthy();
+  expect(screen.getByText('Saved summary · not an original passage')).toBeTruthy();
   expect(axios.post.mock.calls[0][0]).toBe('https://api.example.test/search');
+});
+
+test('original passages and page citations remain readable when AI fails', async () => {
+  vi.stubEnv('VITE_ENABLE_LIVE', 'true');
+  vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test');
+  const text = 'Cedar can search course notes and use a calculator. It cannot delete documents.';
+  axios.post.mockResolvedValue({ data: { summary: null, answer_status: 'unavailable',
+    error: { message: 'AI processing timed out.' },
+    results: [{ _id: 'r1', title: 'Cedar design', summary: 'An AI lesson.',
+      media_type: 'document', media_link: 'https://example.com/cedar.pdf',
+      passages: [{ citation: 'P1', page: 2, ordinal: 3, text }] }] } });
+  const user = renderPage(AskQuestion, '/ask?mode=live');
+  await user.type(screen.getByLabelText('Your question'), 'Can Cedar delete documents?{Enter}');
+  expect(await screen.findByText(text, { selector: 'blockquote' })).toBeTruthy();
+  expect(screen.getByText('[P1] Original document passage · Page 2')).toBeTruthy();
+  expect(screen.queryByText('Saved summary · not an original passage')).toBeNull();
+  expect(screen.queryByText('An AI lesson.')).toBeNull();
+  expect(screen.getByLabelText('Your question').value).toBe('Can Cedar delete documents?');
+});
+
+test('passage indexing notice is visible and clears for the next question', async () => {
+  vi.stubEnv('VITE_ENABLE_LIVE', 'true');
+  vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test');
+  const notice = 'Original passages are not available in search yet.';
+  axios.post.mockResolvedValueOnce({ data: { summary: 'Saved summary answer.', results: [], retrieval_notice: notice } });
+  const user = renderPage(AskQuestion, '/ask?mode=live');
+  await user.type(screen.getByLabelText('Your question'), 'Cedar?{Enter}');
+  expect(await screen.findByRole('status')).toHaveProperty('textContent', notice);
+  axios.post.mockResolvedValueOnce({ data: { summary: 'Next answer.', results: [] } });
+  await user.type(screen.getByLabelText('Your question'), 'Next question{Enter}');
+  expect(await screen.findByText('Next answer.')).toBeTruthy();
+  expect(screen.queryByText(notice)).toBeNull();
 });
 
 test.each([

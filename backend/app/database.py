@@ -15,3 +15,4 @@ client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000,
 db = client[MONGO_DB]
 collection = db["resources"]
 usage_collection = db["usage_limits"]
+passage_collection = db["resource_passages"]

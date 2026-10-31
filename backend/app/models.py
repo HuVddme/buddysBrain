@@ -16,6 +16,7 @@ class ResourceModel(BaseModel):
 
 class ResourceOut(ResourceModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    passage_count: int = 0
 
     model_config = {
         "populate_by_name": True,

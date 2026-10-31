@@ -279,12 +279,13 @@ def test_short_question_keeps_ranked_candidates_below_old_cutoff(client, db, pro
     assert results[0]["_id"] == "tries"
     sent = json.loads(provider.requests[0]["messages"][1]["content"])
     assert sent["question"] == "What are tries?"
-    assert sent["resource_summaries"][0] == {
+    assert sent["resources"][0] == {
         "title": "Data Structures and DFS",
         "summary": "A trie stores strings by shared prefixes.",
+        "evidence_type": "saved_summary",
     }
     # Neither database IDs nor similarity scores are evidence for the model.
-    assert set(sent["resource_summaries"][0]) == {"title", "summary"}
+    assert set(sent["resources"][0]) == {"title", "summary", "evidence_type"}
 
 
 def test_candidates_require_evidence_and_preserve_untrusted_text(provider):
@@ -297,4 +298,4 @@ def test_candidates_require_evidence_and_preserve_untrusted_text(provider):
     assert "state what is missing" in messages[0]["content"]
     assert "untrusted data" in messages[0]["content"]
     assert "Plain text" in messages[0]["content"] or "plain text" in messages[0]["content"]
-    assert json.loads(messages[1]["content"])["resource_summaries"][0]["summary"] == summary
+    assert json.loads(messages[1]["content"])["resources"][0]["summary"] == summary

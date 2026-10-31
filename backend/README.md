@@ -29,6 +29,10 @@ The standalone API exposes `/health`, `/docs`, `/search` and resource endpoints.
 On the combined Vercel deployment these are prefixed with `/api`.
 Health checks liveness only; it does not verify the database or providers.
 
+For document passage search, follow the [index setup and reprocessing guide](../docs/passage-retrieval.md).
+The authenticated `scripts/passage_admin.py` helper calls the deployed backend;
+it does not require the embedding model or database credentials on your laptop.
+
 See the [root setup instructions](../README.md) and
 [architecture](../docs/architecture.md) for deployment settings, limits and
 features still to be implemented.

@@ -10,6 +10,7 @@ const LiveQuestion = () => {
   const [recording, setRecording] = useState(false);
   const [messages, setMessages] = useState([]);
   const [results, setResults] = useState([]);
+  const [retrievalNotice, setRetrievalNotice] = useState('');
   const [selectedResult, setSelectedResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
@@ -102,6 +103,7 @@ const LiveQuestion = () => {
     setIsLoading(true);
     setHasSearchResult(false);
     setResults([]);
+    setRetrievalNotice('');
     setSelectedResult(null);
     setQuestion('');
 
@@ -119,11 +121,12 @@ const LiveQuestion = () => {
         throw new Error('Invalid answer');
       }
       setResults(data.results);
+      setRetrievalNotice(typeof data.retrieval_notice === 'string' ? data.retrieval_notice : '');
       setHasSearchResult(true);
       if (data.answer_status === 'unavailable') {
         const explanation = typeof data.error?.message === 'string' ? data.error.message : 'AI could not generate an answer.';
         setMessages(prev => [...prev, { sender: 'buddy', isError: true,
-          text: `${explanation} Retrieved resource summaries are available below.` }]);
+          text: `${explanation} Retrieved sources are available below.` }]);
         setQuestion(userMessage.text);
       } else {
         const buddyResponse = { sender: 'buddy', text: data.summary };
@@ -289,10 +292,11 @@ const LiveQuestion = () => {
           )}
         </div>
 
+        {retrievalNotice && <p role="status" className="no-results-notice">{retrievalNotice}</p>}
         {results.length > 0 ? (
           <div className="results-container">
             <h2>Retrieved resources</h2>
-            <p>Saved resource summaries, not verbatim passages from the original files.</p>
+            <p>Original document passages and saved summaries are labeled separately below.</p>
             <div className="results-scroll">
               <ul>
                 {results.map((item) => (
@@ -301,7 +305,22 @@ const LiveQuestion = () => {
                     className="result-item hover-highlight"
                   >
                     <h3 className="result-title">{item.title}</h3>
-                    <p className="resource-summary">{item.summary}</p>
+                    {item.passages?.length ? (
+                      <div className="source-passages">
+                        {item.passages.map(passage => (
+                          <div key={passage.citation}>
+                            <p className="passage-label">[{passage.citation}] Original document passage
+                              {passage.page != null && ` · Page ${passage.page}`}</p>
+                            <blockquote>{passage.text}</blockquote>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        <p className="passage-label">Saved summary · not an original passage</p>
+                        <p className="resource-summary">{item.summary}</p>
+                      </>
+                    )}
                     <button type="button" className="resource-details" onClick={() => handleResultClick(item)}>View details for {item.title}</button>
                     <p className="result-type">
                       {item.media_type === 'document' && '📄 Document'}

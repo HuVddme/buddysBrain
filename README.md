@@ -193,18 +193,23 @@ problems and application usage limits. Questions and form fields survive failure
 If retrieval succeeds but AI generation fails, `/search` returns HTTP 200 with
 `summary: null`, `answer_status: "unavailable"`, an `error` containing a safe code
 and message, and the retrieved `results`. Those results are labeled **saved
-resource summaries**: the current live index does not store verbatim document
-passages. Demo passages are real excerpts of the bundled sample notes. If retrieval
+resource summaries** for legacy resources; processed documents instead show original
+extracted passages with citation labels and PDF page numbers. Demo passages are real
+excerpts of the bundled sample notes. If retrieval
 itself fails, the API returns an error rather than an unsupported fallback answer.
 
-Search retrieves the five nearest resource summaries (100 ANN candidates), without
-an uncalibrated absolute score cutoff. Short questions such as "What are tries?"
-can score below 0.7 against a relevant multi-topic summary. Returned resources are
-candidates, not proof of relevance: answer generation is instructed to use only
-supported facts, name the source titles, and acknowledge missing information.
-Details omitted during upload summarization remain unavailable; full-text chunk
-retrieval is still future work. Check answer support as well as retrieval when
-evaluating this behavior.
+New document uploads retain extracted text and token-bounded overlapping passages.
+Search retrieves original passages and uses legacy summary candidates for resources
+not yet migrated. Returned resources are candidates, not proof of relevance: answers
+must cite supporting passages or explicitly identify a saved summary and acknowledge
+missing information. There is no uncalibrated absolute similarity cutoff.
+
+**One-time setup:** create `BuddysBrainPassagesIndex` on `resource_passages`, then
+reprocess existing PDFs by resource ID with the authenticated helper. Existing
+summaries continue working during migration. See the
+[passage setup and reprocessing guide](docs/passage-retrieval.md) for the exact index
+definition, commands, limits and remaining milestone-3 work. Reprocessing does not
+create duplicate resources or re-upload files to Cloudinary.
 
 ### Live usage allowance
 

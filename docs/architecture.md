@@ -9,7 +9,8 @@ flowchart LR
     Visitor[Browser] --> Web[web: static frontend]
     Visitor -->|/api/*| API[api: FastAPI]
     API --> Services[Ingestion, embeddings and AI services]
-    API --> Mongo[(MongoDB Atlas)]
+    API --> Mongo[(MongoDB: resources and original text)]
+    API --> Passages[(MongoDB: resource_passages)]
     Services --> Cloudinary[Cloudinary uploads]
     Services --> OpenAI[OpenAI]
     Services --> Model[Local MiniLM embedding model]
@@ -26,7 +27,8 @@ There are no internal service bindings: requests originate in the browser, not
 in a frontend server function. Use the public relative URL `/api` in the combined
 deployment. Database and provider credentials remain backend settings; `VITE_*`
 variables are public. Both services are publicly reachable, regardless of the
-frontend's live-mode flag. Deletion requires the existing admin bearer token;
+frontend's live-mode flag. Deletion, passage reprocessing and index administration
+require the existing admin bearer token;
 expensive endpoints use shared database-backed quotas. Per-user ownership is
 not yet implemented.
 
@@ -37,6 +39,14 @@ then verify the real Python bundle size, memory and cold-start performance.
 The backend installs CPU-only PyTorch on Linux through uv. MiniLM loads lazily
 and uses ephemeral temporary storage on Vercel; it can download again on a new
 instance. The embedding model and existing vector format are unchanged.
+
+Documents preserve extracted pages and are split into overlapping, token-bounded
+passages before embedding. A separate vector index searches these excerpts;
+generated summaries remain a labeled fallback for unmigrated resources and other
+media. Passage revisions are published by atomically switching the parent pointer,
+and retrieval joins that pointer so staged/stale or deleted resources cannot appear.
+See [passage retrieval](passage-retrieval.md) for setup, admin reprocessing, bounded
+request-time limits and the crash-cleanup limitation.
 
 Vercel uploads are capped at 4 MB to allow multipart overhead below the function's
 4.5 MB request-body limit. A future larger-file flow should upload directly to
