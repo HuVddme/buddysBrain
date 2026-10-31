@@ -126,3 +126,49 @@ def test_provider_failure_retains_checkpoint_and_is_retryable(monkeypatch):
     asyncio.run(worker.process_one())
     assert fail.await_args.args[-1] is True
     assert row['checkpoint']['document']
+
+
+def test_mongo_publication_replays_without_duplicate_rows(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    parents, passages = {}, {}
+    async def bulk_write(operations, **_):
+        for operation in operations:
+            passages.setdefault(operation._filter['_id'], operation._doc['$setOnInsert'])
+    async def update_one(query, update, **_):
+        parents.setdefault(query['_id'], update['$setOnInsert'])
+    fake = SimpleNamespace(
+        collection=SimpleNamespace(update_one=update_one),
+        passage_collection=SimpleNamespace(bulk_write=bulk_write),
+    )
+    monkeypatch.setitem(sys.modules, 'app.database', fake)
+    row = job_row()
+    row['checkpoint'] = {'document': {'pages': [{'text': 'Notes'}], 'sha256': 'abc',
+                                     'passages': [{'ordinal': 1, 'text': 'Notes', 'embedding': [0.1]}]},
+                         'summary': 'Notes', 'embedding': [0.1], 'media_link': 'https://example.test/file'}
+    async def run():
+        await worker.publish(row)
+        await worker.publish(row)
+        assert len(parents) == 1 and len(passages) == 1
+        resource_id = next(iter(parents))
+        parents[resource_id] = {'_id': resource_id, '_deleted': True}
+        await worker.publish(row)
+        assert parents[resource_id] == {'_id': resource_id, '_deleted': True}
+    asyncio.run(run())
+
+
+def test_deleted_job_resource_is_not_readable(client, db):
+    db.find_one.return_value = {'_id': '507f1f77bcf86cd799439011', '_deleted': True}
+    assert client.get('/resources/507f1f77bcf86cd799439011').status_code == 404
+
+
+def test_summary_vector_search_filters_tombstones(client, db):
+    class Empty:
+        def __aiter__(self):
+            return self
+        async def __anext__(self):
+            raise StopAsyncIteration
+    db.aggregate.return_value = Empty()
+    client.post('/search', json={'query': 'Notes'})
+    pipeline = db.aggregate.call_args.args[0]
+    assert {'$match': {'_deleted': {'$ne': True}}} in pipeline
