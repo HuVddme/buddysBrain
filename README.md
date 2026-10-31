@@ -197,6 +197,15 @@ resource summaries**: the current live index does not store verbatim document
 passages. Demo passages are real excerpts of the bundled sample notes. If retrieval
 itself fails, the API returns an error rather than an unsupported fallback answer.
 
+Search retrieves the five nearest resource summaries (100 ANN candidates), without
+an uncalibrated absolute score cutoff. Short questions such as "What are tries?"
+can score below 0.7 against a relevant multi-topic summary. Returned resources are
+candidates, not proof of relevance: answer generation is instructed to use only
+supported facts, name the source titles, and acknowledge missing information.
+Details omitted during upload summarization remain unavailable; full-text chunk
+retrieval is still future work. Check answer support as well as retrieval when
+evaluating this behavior.
+
 ### Live usage allowance
 
 `LIVE_REQUESTS_PER_MINUTE=12` and `LIVE_REQUESTS_PER_DAY=100` are the backend

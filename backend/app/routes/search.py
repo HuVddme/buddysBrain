@@ -21,7 +21,10 @@ async def vector_search_and_summarize(payload: SearchQuery):
             "path": "embedding",
             "queryVector": query_vector,
             "numCandidates": 100,
-            "limit": 100
+            # Short questions can be relevant to a multi-topic summary without
+            # exceeding a fixed similarity score. Retrieve ranked candidates;
+            # answer generation must check whether they support the question.
+            "limit": 5
         }},
         {"$project": {
             "title": 1,
@@ -31,9 +34,7 @@ async def vector_search_and_summarize(payload: SearchQuery):
             "course": 1,
             "score": {"$meta": "vectorSearchScore"}
         }},
-        {"$match": {"score": {"$gt": 0.7}}},
-        {"$sort": {"score": -1}},
-        {"$limit": 10}
+        {"$sort": {"score": -1}}
     ]
 
     results = []
