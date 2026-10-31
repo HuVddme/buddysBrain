@@ -141,7 +141,9 @@ def test_quota_rejects_all_expensive_routes_before_work(client, db, monkeypatch,
         response = client.post("/upload", data={"title": "T", "description": "D", "course": "CS"},
                                files={"file": ("notes.txt", b"lesson")})
     else:
-        response = client.post("/" + endpoint, json=[resource, resource] if endpoint.endswith("bulk") else resource)
+        monkeypatch.setenv("RESOURCE_ADMIN_TOKEN", "test-admin")
+        response = client.post("/" + endpoint, json=[resource, resource] if endpoint.endswith("bulk") else resource,
+                               headers={"Authorization": "Bearer test-admin"})
     assert response.status_code == 429
     assert response.headers["Retry-After"] == "60"
     if endpoint.endswith("bulk"):

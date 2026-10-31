@@ -3,15 +3,16 @@ import os
 import asyncio
 from hashlib import sha256
 import logging
+from typing import Annotated
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Response
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile, Response
 
 from ..auth import require_resource_admin
 from ..usage import limiter, reserve_request
 from ..database import collection, passage_collection
 from pymongo.errors import PyMongoError
-from ..models import ResourceModel, ResourceOut
+from ..models import BulkResourceCreate, ResourceModel, ResourceOut
 from ..services.embeddings import get_embedding
 from ..utils.objectid import serialize_mongo_doc
 from ..services.processing import run_processing
@@ -37,17 +38,16 @@ async def create_resource(resource: ResourceModel):
     return ResourceOut.model_validate(serialize_mongo_doc(created))
 
 
-@router.post("/resources/bulk", response_model=list[ResourceOut])
-async def create_bulk_resources(resources: list[ResourceModel]):
-    if jobs.enabled() and any(r.media_type == 'document' for r in resources):
-        raise HTTPException(400, 'Upload document files through /upload so processing can be tracked.')
-    if not 1 <= len(resources) <= 200:
-        raise HTTPException(400, "Provide between 1 and 200 resources per request.")
+@router.post("/resources/bulk", response_model=list[ResourceOut], dependencies=[Depends(require_resource_admin)])
+async def create_bulk_resources(resources: Annotated[list[BulkResourceCreate], Body(min_length=1, max_length=200)]):
     await limiter.reserve(cost=len(resources))
     resource_dicts = []
     for resource in resources:
-        r_dict = resource.model_dump()
-        r_dict["embedding"] = await run_processing(get_embedding, resource.summary or resource.description)
+        # Reuse the normal link pipeline: public destinations/redirects, bounded
+        # fetching, server-generated summaries and embeddings. Never trust an
+        # imported summary as evidence. Finish processing before writing records.
+        summary, embedding = await run_processing(summarize_link, resource.media_type, resource.media_link)
+        r_dict = ResourceModel(**resource.model_dump(), summary=summary, embedding=embedding).model_dump()
         resource_dicts.append(r_dict)
     result = await collection.insert_many(resource_dicts)
     inserted_docs = await collection.find({"_id": {"$in": result.inserted_ids}}).to_list(length=200)

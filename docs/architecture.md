@@ -35,7 +35,7 @@ There are no internal service bindings: requests originate in the browser, not
 in a frontend server function. Use the public relative URL `/api` in the combined
 deployment. Database and provider credentials remain backend settings; `VITE_*`
 variables are public. Both services are publicly reachable, regardless of the
-frontend's live-mode flag. Deletion, passage reprocessing and index administration
+frontend's live-mode flag. Bulk link imports, deletion, passage reprocessing and index administration
 require the existing admin bearer token;
 expensive endpoints use shared database-backed quotas. Per-user ownership is
 not yet implemented.

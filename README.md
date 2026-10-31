@@ -298,6 +298,17 @@ in a `VITE_*` variable.
 
 ### First round of improvements
 
+- Bulk imports (`POST /api/resources/bulk`) require the same admin bearer token
+  as deletion. Send an array of 1–200 objects with only `title` (1–200 characters),
+  `description` (1–4000), `course` (1–200), `media_type` (`article` or `video`), and
+  `media_link` (an HTTP/HTTPS URL up to 2048 characters). Text is trimmed and must
+  not be blank. Documents and images must use `/api/upload`.
+  Supplied summaries, embeddings, timestamps and unknown fields are rejected.
+  The backend generates summaries from fetched articles or YouTube transcripts
+  using the normal URL protections and timeouts, and generates its own embeddings.
+  Processing must succeed for every item before any records are inserted; database
+  insertion is not transactional and this endpoint does not provide retry deduplication.
+  Existing callers that imported precomputed summaries must switch to this format.
 - Cloudinary reads your backend environment variables instead of committed credentials.
 - Deletion requires `Authorization: Bearer <RESOURCE_ADMIN_TOKEN>`. Generate a long
   random token locally using the command in `.env.example`. Keep it exclusively
