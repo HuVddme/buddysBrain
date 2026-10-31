@@ -1,0 +1,454 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "limits-01",
+      "document": "limits",
+      "question": "In CALC101, what does a limit describe?",
+      "expected_answer": "The value a function approaches as its input approaches a number.",
+      "supporting_passages": [
+        "limits:1"
+      ],
+      "expected_patterns": [
+        [
+          "approach"
+        ]
+      ]
+    },
+    {
+      "id": "limits-02",
+      "document": "limits",
+      "question": "According to CALC101, can a limit exist where the function is undefined?",
+      "expected_answer": "Yes. It concerns nearby behavior.",
+      "supporting_passages": [
+        "limits:1"
+      ],
+      "expected_patterns": [
+        [
+          "yes",
+          "can exist"
+        ],
+        [
+          "near",
+          "approach"
+        ]
+      ]
+    },
+    {
+      "id": "limits-03",
+      "document": "limits",
+      "question": "What is the limit of (x² - 4)/(x - 2) as x approaches 2 in CALC101?",
+      "expected_answer": "4",
+      "supporting_passages": [
+        "limits:2"
+      ],
+      "expected_patterns": [
+        [
+          "\\b4\\b",
+          "four"
+        ]
+      ]
+    },
+    {
+      "id": "limits-04",
+      "document": "limits",
+      "question": "Which expression equals (x² - 4)/(x - 2) when x is not 2 in CALC101?",
+      "expected_answer": "x + 2",
+      "supporting_passages": [
+        "limits:2"
+      ],
+      "expected_patterns": [
+        [
+          "x\\s*\\+\\s*2"
+        ]
+      ]
+    },
+    {
+      "id": "limits-05",
+      "document": "limits",
+      "question": "Is the original CALC101 rational expression defined at x=2?",
+      "expected_answer": "No, it is undefined.",
+      "supporting_passages": [
+        "limits:2"
+      ],
+      "expected_patterns": [
+        [
+          "undefined",
+          "not defined"
+        ]
+      ]
+    },
+    {
+      "id": "limits-06",
+      "document": "limits",
+      "question": "What three conditions define continuity in CALC101?",
+      "expected_answer": "Defined value, existing two-sided limit, and equality of the two.",
+      "supporting_passages": [
+        "limits:3"
+      ],
+      "expected_patterns": [
+        [
+          "defined"
+        ],
+        [
+          "limit"
+        ],
+        [
+          "equal"
+        ]
+      ]
+    },
+    {
+      "id": "limits-07",
+      "document": "limits",
+      "question": "Does merely having a limit guarantee continuity in CALC101?",
+      "expected_answer": "No.",
+      "supporting_passages": [
+        "limits:3"
+      ],
+      "expected_patterns": [
+        [
+          "\\bno\\b",
+          "does not",
+          "not guarantee"
+        ]
+      ]
+    },
+    {
+      "id": "limits-08",
+      "document": "limits",
+      "question": "What happens if left and right limits differ, according to CALC101?",
+      "expected_answer": "The two-sided limit does not exist.",
+      "supporting_passages": [
+        "limits:4"
+      ],
+      "expected_patterns": [
+        [
+          "not exist",
+          "no two-sided",
+          "doesn.t exist"
+        ]
+      ]
+    },
+    {
+      "id": "limits-09",
+      "document": "limits",
+      "question": "What date is the CALC101 final exam?",
+      "expected_answer": "The notes do not specify an exam date.",
+      "supporting_passages": [],
+      "expected_patterns": []
+    },
+    {
+      "id": "limits-10",
+      "document": "limits",
+      "question": "What textbook edition is required for CALC101?",
+      "expected_answer": "The notes do not specify a textbook edition.",
+      "supporting_passages": [],
+      "expected_patterns": []
+    },
+    {
+      "id": "heaps-01",
+      "document": "heaps",
+      "question": "According to CS201, what kind of tree is a binary heap?",
+      "expected_answer": "A complete binary tree.",
+      "supporting_passages": [
+        "heaps:1"
+      ],
+      "expected_patterns": [
+        [
+          "complete"
+        ],
+        [
+          "binary"
+        ]
+      ]
+    },
+    {
+      "id": "heaps-02",
+      "document": "heaps",
+      "question": "How is the last level of a binary heap filled in CS201?",
+      "expected_answer": "From left to right.",
+      "supporting_passages": [
+        "heaps:1"
+      ],
+      "expected_patterns": [
+        [
+          "left"
+        ],
+        [
+          "right"
+        ]
+      ]
+    },
+    {
+      "id": "heaps-03",
+      "document": "heaps",
+      "question": "Where is the smallest min-heap element, according to CS201?",
+      "expected_answer": "At the root.",
+      "supporting_passages": [
+        "heaps:1"
+      ],
+      "expected_patterns": [
+        [
+          "root"
+        ]
+      ]
+    },
+    {
+      "id": "heaps-04",
+      "document": "heaps",
+      "question": "Does a heap fully sort all its elements in CS201?",
+      "expected_answer": "No. Only parent-child ordering is constrained.",
+      "supporting_passages": [
+        "heaps:2"
+      ],
+      "expected_patterns": [
+        [
+          "\\bno\\b",
+          "not fully",
+          "does not"
+        ],
+        [
+          "parent",
+          "sibling"
+        ]
+      ]
+    },
+    {
+      "id": "heaps-05",
+      "document": "heaps",
+      "question": "What happens after placing a new element in a heap in CS201?",
+      "expected_answer": "Move it up until the heap property is restored.",
+      "supporting_passages": [
+        "heaps:3"
+      ],
+      "expected_patterns": [
+        [
+          "up"
+        ],
+        [
+          "heap property"
+        ]
+      ]
+    },
+    {
+      "id": "heaps-06",
+      "document": "heaps",
+      "question": "What is the worst-case insertion time in the CS201 binary heap?",
+      "expected_answer": "O(log n).",
+      "supporting_passages": [
+        "heaps:3"
+      ],
+      "expected_patterns": [
+        [
+          "log\\s*n",
+          "logarithmic"
+        ]
+      ]
+    },
+    {
+      "id": "heaps-07",
+      "document": "heaps",
+      "question": "What is the cost of reading the minimum in CS201?",
+      "expected_answer": "O(1).",
+      "supporting_passages": [
+        "heaps:4"
+      ],
+      "expected_patterns": [
+        [
+          "O\\s*\\(\\s*1\\s*\\)",
+          "constant"
+        ]
+      ]
+    },
+    {
+      "id": "heaps-08",
+      "document": "heaps",
+      "question": "How is the root removed from a min-heap in CS201?",
+      "expected_answer": "Replace with the last element and move down; O(log n).",
+      "supporting_passages": [
+        "heaps:4"
+      ],
+      "expected_patterns": [
+        [
+          "last"
+        ],
+        [
+          "down"
+        ],
+        [
+          "log"
+        ]
+      ]
+    },
+    {
+      "id": "heaps-09",
+      "document": "heaps",
+      "question": "What is the maximum allowed heap size in the CS201 sample?",
+      "expected_answer": "The notes do not specify a maximum size.",
+      "supporting_passages": [],
+      "expected_patterns": []
+    },
+    {
+      "id": "heaps-10",
+      "document": "heaps",
+      "question": "Which programming language implements the CS201 sample heap?",
+      "expected_answer": "The notes do not specify a programming language.",
+      "supporting_passages": [],
+      "expected_patterns": []
+    },
+    {
+      "id": "normalization-01",
+      "document": "normalization",
+      "question": "What is normalization intended to reduce in DB101?",
+      "expected_answer": "Redundant facts and insert, update and delete anomalies.",
+      "supporting_passages": [
+        "normalization:1"
+      ],
+      "expected_patterns": [
+        [
+          "redundan"
+        ],
+        [
+          "anomal"
+        ]
+      ]
+    },
+    {
+      "id": "normalization-02",
+      "document": "normalization",
+      "question": "What is normalization based on in DB101?",
+      "expected_answer": "Keys and dependencies between attributes.",
+      "supporting_passages": [
+        "normalization:1"
+      ],
+      "expected_patterns": [
+        [
+          "key"
+        ],
+        [
+          "dependenc"
+        ]
+      ]
+    },
+    {
+      "id": "normalization-03",
+      "document": "normalization",
+      "question": "Which pair identifies an enrollment in DB101?",
+      "expected_answer": "StudentID and CourseID.",
+      "supporting_passages": [
+        "normalization:2"
+      ],
+      "expected_patterns": [
+        [
+          "StudentID"
+        ],
+        [
+          "CourseID"
+        ]
+      ]
+    },
+    {
+      "id": "normalization-04",
+      "document": "normalization",
+      "question": "What determines InstructorName in the DB101 example?",
+      "expected_answer": "CourseID alone.",
+      "supporting_passages": [
+        "normalization:2"
+      ],
+      "expected_patterns": [
+        [
+          "CourseID"
+        ]
+      ]
+    },
+    {
+      "id": "normalization-05",
+      "document": "normalization",
+      "question": "What problem can repeating instructors across enrollments cause in DB101?",
+      "expected_answer": "Inconsistent updates.",
+      "supporting_passages": [
+        "normalization:2"
+      ],
+      "expected_patterns": [
+        [
+          "inconsisten"
+        ]
+      ]
+    },
+    {
+      "id": "normalization-06",
+      "document": "normalization",
+      "question": "Which two tables are proposed as a solution in DB101?",
+      "expected_answer": "Course(CourseID, InstructorName) and Enrollment(StudentID, CourseID).",
+      "supporting_passages": [
+        "normalization:3"
+      ],
+      "expected_patterns": [
+        [
+          "Course"
+        ],
+        [
+          "Enrollment"
+        ],
+        [
+          "InstructorName"
+        ],
+        [
+          "StudentID"
+        ]
+      ]
+    },
+    {
+      "id": "normalization-07",
+      "document": "normalization",
+      "question": "How many instructors per course does the DB101 example assume?",
+      "expected_answer": "One.",
+      "supporting_passages": [
+        "normalization:3"
+      ],
+      "expected_patterns": [
+        [
+          "\\bone\\b",
+          "\\b1\\b"
+        ]
+      ]
+    },
+    {
+      "id": "normalization-08",
+      "document": "normalization",
+      "question": "What trade-off does denormalization introduce in DB101?",
+      "expected_answer": "Simpler reads but duplicated data that must remain consistent.",
+      "supporting_passages": [
+        "normalization:4"
+      ],
+      "expected_patterns": [
+        [
+          "read"
+        ],
+        [
+          "duplicat"
+        ],
+        [
+          "consisten"
+        ]
+      ]
+    },
+    {
+      "id": "normalization-09",
+      "document": "normalization",
+      "question": "Which database engine and version does the DB101 example use?",
+      "expected_answer": "The notes do not specify an engine or version.",
+      "supporting_passages": [],
+      "expected_patterns": []
+    },
+    {
+      "id": "normalization-10",
+      "document": "normalization",
+      "question": "What is the DB101 instructor’s name?",
+      "expected_answer": "The notes do not identify the instructor.",
+      "supporting_passages": [],
+      "expected_patterns": []
+    }
+  ]
+}

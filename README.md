@@ -415,6 +415,15 @@ configured services and a separate integration check.
 
 ## API Endpoint
 
+### Repeatable AI evaluation
+
+Run `python -m scripts.evaluate --output /tmp/buddy-evaluation.json` from
+`backend` for the fixed 30-question retrieval baseline without an API key.
+See [evaluation instructions](docs/evaluation.md) for embedding comparisons,
+opt-in paid answer checks, citation review, latency and token-based cost estimates.
+CI saves the baseline report as an artifact. This small fixture does not replace
+live Atlas or ingestion testing.
+
 **POST** `/search`
 
 **Request Example:**

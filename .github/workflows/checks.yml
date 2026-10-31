@@ -25,6 +25,11 @@ jobs:
             backend/requirements-test.txt
       - run: python -m pip install -r requirements-test.txt
       - run: python -m pytest -q
+      - run: python -m scripts.evaluate --output /tmp/buddy-evaluation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retrieval-baseline
+          path: /tmp/buddy-evaluation.json
 
   frontend:
     runs-on: ubuntu-latest
