@@ -6,13 +6,13 @@ import logging
 from typing import Annotated
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile, Response, Request
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile, Response, Request, Query
 
 from ..auth import require_resource_admin
 from ..usage import limiter, reserve_request
 from ..database import collection, passage_collection
 from pymongo.errors import PyMongoError
-from ..models import ResourceCreate, ResourceTitle, ResourceDescription, ResourceCourse, ResourceModel, ResourceOut, UploadResourceOut
+from ..models import ResourceCreate, ResourceTitle, ResourceDescription, ResourceCourse, ResourceModel, ResourceOut, UploadResourceOut, ResourcePage
 from ..services.embeddings import get_embedding
 from ..utils.objectid import serialize_mongo_doc
 from ..services.processing import run_processing
@@ -54,10 +54,17 @@ async def create_bulk_resources(resources: Annotated[list[ResourceCreate], Body(
     return [ResourceOut.model_validate(serialize_mongo_doc(doc)) for doc in inserted_docs]
 
 
-@router.get("/resources", response_model=list[ResourceOut])
-async def get_all_resources():
-    resources = await collection.find({'_deleted': {'$ne': True}}, {"source_pages": 0}).to_list(500)
-    return [ResourceOut.model_validate(serialize_mongo_doc(r)) for r in resources]
+@router.get("/resources", response_model=ResourcePage)
+async def get_all_resources(limit: int = Query(20, ge=1, le=100), after: str | None = Query(None, max_length=24)):
+    query = {'_deleted': {'$ne': True}}
+    if after is not None:
+        query['_id'] = {'$gt': resource_object_id(after)}
+    # Keyset pagination uses Mongo's existing _id index. Fetch one extra item to
+    # distinguish a full final page from a page with more results.
+    projection = {name: 1 for name in ('_id', 'title', 'course', 'media_type', 'media_link', 'timestamp', 'passage_count')}
+    rows = await collection.find(query, projection).sort('_id', 1).limit(limit + 1).to_list(length=limit + 1)
+    return {'items': [serialize_mongo_doc(row) for row in rows[:limit]],
+            'next_cursor': str(rows[limit - 1]['_id']) if len(rows) > limit else None}
 
 
 @router.get("/numResources", response_model=int)

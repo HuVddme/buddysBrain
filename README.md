@@ -213,6 +213,18 @@ summaries continue working during migration. See the
 definition, commands, limits and remaining milestone-3 work. Reprocessing does not
 create duplicate resources or re-upload files to Cloudinary.
 
+### Browsing the resource library
+
+`GET /api/resources?limit=20` returns `{ "items": [...], "next_cursor": "..." }`.
+Pass `next_cursor` as `after` on the next request; stop when it is `null`. The page
+size is 1–100 (default 20), ordered by ascending Mongo `_id`, excluding deletions.
+List items contain only `_id`, title, course, media type/link, timestamp and passage
+count. Read `/api/resources/{id}` for the full saved summary and description.
+This replaces the old bare array capped at 500 entries; external callers must
+read `items` and follow the cursor. The current frontend uses search and resource
+counts and does not depend on the old array. This is not a snapshot: records added
+or deleted during traversal can change subsequent pages; restart to refresh.
+
 ### Live usage allowance
 
 The backend trims questions and requires 1–2,000 characters. Resource titles and

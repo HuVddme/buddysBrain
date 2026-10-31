@@ -32,6 +32,21 @@ class UploadResourceOut(ResourceOut):
     duplicate: bool = False
 
 
+class ResourceListItem(BaseModel):
+    id: str = Field(alias='_id')
+    title: str
+    course: str
+    media_type: str
+    media_link: str
+    timestamp: Optional[datetime] = None
+    passage_count: int = 0
+
+
+class ResourcePage(BaseModel):
+    items: list[ResourceListItem]
+    next_cursor: Optional[str] = None
+
+
 ResourceTitle = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 ResourceDescription = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
 ResourceCourse = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
