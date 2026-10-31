@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+from uuid import UUID
 from urllib.parse import urlsplit
 
 import requests
@@ -13,9 +14,10 @@ from dotenv import load_dotenv
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["setup", "status", "reprocess"])
+    parser.add_argument("action", choices=["setup", "status", "reprocess", "recover"])
     parser.add_argument("--api-base", required=True, help="Backend base URL, including /api on Vercel")
     parser.add_argument("--resource-id")
+    parser.add_argument("--job-id", type=UUID, help="Existing failed ingestion job to recover")
     parser.add_argument("--file", type=Path, help="The original PDF, DOCX or TXT for an existing document")
     args = parser.parse_args()
     base = args.api_base.rstrip("/")
@@ -24,8 +26,10 @@ def main():
             or not (url.scheme == "https" or
                     (url.scheme == "http" and url.hostname in {"localhost", "127.0.0.1", "::1"}))):
         parser.error("Use an HTTPS API base URL, or HTTP on localhost. Do not put credentials in the URL.")
-    if args.action == "reprocess":
-        if not args.resource_id or not re.fullmatch(r"[a-fA-F0-9]{24}", args.resource_id):
+    if args.action in {"reprocess", "recover"}:
+        if args.action == "recover" and not args.job_id:
+            parser.error("Recovery needs --job-id with the failed job's UUID.")
+        if args.action == "reprocess" and (not args.resource_id or not re.fullmatch(r"[a-fA-F0-9]{24}", args.resource_id)):
             parser.error("Reprocessing needs --resource-id with the existing document's 24-character ID.")
         if not args.file or not args.file.is_file():
             parser.error("Reprocessing needs --file pointing to the original document.")
@@ -41,9 +45,11 @@ def main():
     try:
         # Do not follow redirects with an administrative credential.
         with requests.Session() as session:
-            if args.action == "reprocess":
+            if args.action in {"reprocess", "recover"}:
+                endpoint = (f"/admin/ingestion/{args.job_id}/recover" if args.action == "recover"
+                            else f"/resources/{args.resource_id}/passages")
                 with args.file.open("rb") as stream:
-                    response = session.post(f"{base}/resources/{args.resource_id}/passages",
+                    response = session.post(f"{base}{endpoint}",
                                             files={"file": (args.file.name, stream)}, headers=headers,
                                             timeout=(10, 120), allow_redirects=False)
             else:

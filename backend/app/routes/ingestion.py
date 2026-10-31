@@ -4,11 +4,11 @@ import asyncio
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile
 
 from ..services import jobs
 from ..services.job_dispatch import dispatch
-from ..usage import reserve_request
+from ..usage import limiter, reserve_request
 from ..auth import require_resource_admin
 
 
@@ -39,6 +39,20 @@ async def get_job(job_id: UUID, response: Response):
 async def retry_job(job_id: UUID):
     state = await jobs.retry(job_id)
     state['dispatch_pending'] = not await dispatch(job_id)
+    return state
+
+
+@admin_router.post('/admin/ingestion/{job_id}/recover', dependencies=[Depends(require_ingestion)])
+async def recover_job(job_id: UUID, response: Response, file: UploadFile = File(...)):
+    from .resources import DOCUMENT_EXTENSIONS, read_upload
+    suffix = Path(file.filename or '').suffix.lower()
+    if suffix not in DOCUMENT_EXTENSIONS:
+        raise HTTPException(415, 'Supported documents: PDF, DOCX and TXT.')
+    contents = await read_upload(file)
+    await limiter.reserve()
+    state = await jobs.recover(job_id, contents, suffix)
+    state['dispatch_pending'] = not await dispatch(job_id)
+    response.headers['Cache-Control'] = 'no-store'
     return state
 
 

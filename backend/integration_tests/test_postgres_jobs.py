@@ -14,6 +14,7 @@ from psycopg.conninfo import make_conninfo
 import pytest
 
 from app.services import jobs
+from fastapi import HTTPException
 
 pytestmark = pytest.mark.skipif(not os.getenv('TEST_DATABASE_URL'), reason='Set TEST_DATABASE_URL to an isolated PostgreSQL database')
 
@@ -117,4 +118,69 @@ def test_attempt_limit_covers_worker_crashes():
         assert await jobs.claim() is None
         state = await jobs.status(created['job_id'])
         assert state['status'] == 'failed' and not state['retry_available']
+    asyncio.run(run())
+
+
+def test_concurrent_admin_recovery_preserves_dedup_and_fences_old_worker():
+    async def run():
+        original = await upload()
+        old = await jobs.claim()
+        await jobs.checkpoint(old, {'summary': 'saved result'})
+        async with jobs.connection() as conn:
+            await conn.execute("UPDATE ingestion_jobs SET status='failed', attempts=5, retryable=false")
+        recovered = await asyncio.gather(*[
+            jobs.recover(original['job_id'], b'original notes', '.txt') for _ in range(4)
+        ], return_exceptions=True)
+        assert sum(isinstance(r, dict) for r in recovered) == 1
+        assert all(isinstance(r, dict) or (isinstance(r, HTTPException) and r.status_code == 409) for r in recovered)
+        duplicate = await upload()
+        assert duplicate['job_id'] == original['job_id'] and duplicate['duplicate']
+        new = await jobs.claim(original['job_id'])
+        assert new['attempts'] == 1 and new['resource_id'] == old['resource_id']
+        assert new['checkpoint'] == old['checkpoint']
+        with pytest.raises(jobs.LeaseLost):
+            await jobs.checkpoint(old, {'summary': 'stale'})
+        async with jobs.connection() as conn:
+            assert (await (await conn.execute('SELECT count(*) AS count FROM ingestion_jobs')).fetchone())['count'] == 1
+    asyncio.run(run())
+
+
+def test_recovery_restores_expired_input_with_a_fresh_retention_window():
+    async def run():
+        original = await upload()
+        async with jobs.connection() as conn:
+            await conn.execute("UPDATE ingestion_jobs SET created_at=now()-interval '8 days', updated_at=now()-interval '8 days'")
+        await jobs.pending_ids()
+        assert (await jobs.status(original['job_id']))['error']['code'] == 'expired'
+        await jobs.recover(original['job_id'], b'original notes', '.txt')
+        assert original['job_id'] in await jobs.pending_ids()
+        new = await jobs.claim(original['job_id'])
+        assert bytes(new['source_bytes']) == b'original notes'
+        assert new['checkpoint'] is None and new['attempts'] == 1
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('state', ['queued', 'processing', 'retrying', 'succeeded', 'cancelled'])
+def test_recovery_cannot_reset_active_completed_or_deleted_jobs(state):
+    async def run():
+        original = await upload()
+        async with jobs.connection() as conn:
+            await conn.execute('UPDATE ingestion_jobs SET status=%s', (state,))
+        with pytest.raises(HTTPException) as error:
+            await jobs.recover(original['job_id'], b'original notes', '.txt')
+        assert error.value.status_code == 409
+        assert (await jobs.status(original['job_id']))['status'] == state
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('contents,suffix', [(b'different notes', '.txt'), (b'original notes', '.pdf')])
+def test_recovery_cannot_replace_file(contents, suffix):
+    async def run():
+        original = await upload()
+        async with jobs.connection() as conn:
+            await conn.execute("UPDATE ingestion_jobs SET status='failed'")
+        with pytest.raises(HTTPException) as error:
+            await jobs.recover(original['job_id'], contents, suffix)
+        assert error.value.status_code == 409
+        assert (await jobs.status(original['job_id']))['status'] == 'failed'
     asyncio.run(run())

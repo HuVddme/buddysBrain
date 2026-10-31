@@ -114,6 +114,28 @@ async def retry(job_id):
     return await status(job_id)
 
 
+async def recover(job_id, contents, suffix):
+    """Admin-only caller restores the original bytes and a bounded retry budget."""
+    async with connection() as conn:
+        row = await (await conn.execute(
+            'SELECT * FROM ingestion_jobs WHERE id = %s FOR UPDATE', (job_id,),
+        )).fetchone()
+        if row is None:
+            raise HTTPException(404, 'Document processing job not found.')
+        if row['status'] != 'failed':
+            raise HTTPException(409, 'Only failed jobs can be recovered. Active, completed and cancelled jobs cannot be reset.')
+        if sha256(contents).hexdigest() != row['content_hash'] or suffix != row['suffix']:
+            raise HTTPException(409, 'Select the original file with its original extension. Recovery cannot replace a document.')
+        # Preserve immutable checkpoints, IDs and hashes for safe replay after a
+        # lost Mongo acknowledgement. New attempts receive fresh lease tokens.
+        await conn.execute("""UPDATE ingestion_jobs SET status = 'queued', attempts = 0,
+            retryable = true, source_bytes = %s, error_code = NULL, error_message = NULL,
+            lease_token = NULL, lease_until = NULL, available_at = now(), updated_at = now()
+            WHERE id = %s""", (contents, job_id))
+    logging.getLogger(__name__).info('Administrator recovered document job %s after %s attempts', job_id, row['attempts'])
+    return await status(job_id)
+
+
 async def claim(job_id=None):
     async with connection() as conn:
         # Bound crash retries too: never leave a fifth crashed attempt stuck forever.
@@ -207,7 +229,7 @@ async def pending_ids():
             source_bytes = NULL, checkpoint = NULL, lease_token = NULL, lease_until = NULL,
             error_code = 'expired', error_message = 'The processing window expired. Contact the site owner.',
             updated_at = now() WHERE status NOT IN ('succeeded', 'cancelled')
-            AND created_at < now() - interval '7 days' AND
+            AND updated_at < now() - interval '7 days' AND
             (status != 'processing' OR lease_until < now()) AND source_bytes IS NOT NULL""")
         rows = await (await conn.execute("""SELECT id FROM ingestion_jobs
             WHERE (status IN ('queued', 'retrying') AND available_at <= now())

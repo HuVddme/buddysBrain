@@ -72,6 +72,12 @@ uploads first if preserving cross-path deduplication is essential.
 - `POST /ingestion/{job_id}/retry`: requeues eligible jobs without reuploading.
   Uses the same server usage allowance; an active job cannot be reset.
 - `POST /admin/ingestion/reconcile`: admin-only redelivery of outstanding jobs.
+- `POST /admin/ingestion/{job_id}/recover`: admin-only multipart upload of the
+  original `file` for a failed job, including exhausted or expired jobs. Restores
+  bytes and a fresh five-attempt budget while preserving its IDs, hash, metadata
+  and any saved checkpoints. Active, completed and cancelled jobs return 409;
+  a different file or extension also returns 409. Concurrent recovery requests
+  serialize: only the first can reset the job. Dispatch failures leave it queued.
 - `GET /internal/ingestion/reconcile`: scheduler-only, requires `CRON_SECRET`.
 
 All paths are prefixed with `/api` on Vercel. The browser stores only the latest
@@ -82,6 +88,17 @@ Successful processing means the document and passages were saved; Atlas may take
 a short time to index them for retrieval.
 
 ## Reliability guarantees and boundaries
+
+After fixing a provider/configuration problem, recover using the existing admin
+tool (it reads `RESOURCE_ADMIN_TOKEN` from `backend/.env` or prompts privately):
+
+```sh
+backend/.venv/bin/python backend/scripts/passage_admin.py recover --api-base https://buddysbrain.vercel.app/api --job-id FAILED_JOB_UUID --file /absolute/path/to/original.pdf
+```
+
+Check status after a timeout before repeating recovery. A repeated request can
+return 409 because the first already queued or completed the job. Recovery does
+not restore administratively deleted resources and does not require a migration.
 
 - A PostgreSQL unique constraint on the SHA-256 of the file bytes prevents
   concurrent/repeated submissions from creating multiple jobs. Metadata from the
@@ -113,7 +130,8 @@ a short time to index them for retrieval.
 - Source bytes are limited to 4 MB on Vercel (10 MiB elsewhere). They are held in
   PostgreSQL intentionally for atomic admission at this small scale, then cleared
   on success or permanent parsing failure. Abandoned inputs/checkpoints expire
-  after seven days during reconciliation; small dedup/status records are retained.
+  after seven days without progress during reconciliation; recovery starts a new
+  retention window without changing the original creation time. Small dedup/status records are retained.
   For larger volume, move staged bytes to private object storage with an outbox.
 - Limits count accepted uploads/retry requests; bounded automatic worker retries
   do not reserve another public request. This is not a dollar spending cap.

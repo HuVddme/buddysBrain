@@ -66,6 +66,45 @@ def test_setup_and_reconciliation_require_admin(client, monkeypatch):
     assert client.get('/internal/ingestion/reconcile').status_code == 401
 
 
+@pytest.mark.parametrize('authorization', [None, 'Bearer wrong', 'Basic wrong'])
+def test_recovery_requires_admin_before_storage(client, monkeypatch, authorization):
+    monkeypatch.setenv('DOCUMENT_INGESTION_ENABLED', 'true')
+    monkeypatch.setenv('RESOURCE_ADMIN_TOKEN', 'admin')
+    recover = AsyncMock()
+    monkeypatch.setattr(jobs, 'recover', recover)
+    response = client.post(f'/admin/ingestion/{uuid4()}/recover',
+                           headers={'Authorization': authorization} if authorization else {},
+                           files={'file': ('notes.txt', b'original')})
+    assert response.status_code == 401
+    recover.assert_not_called()
+
+
+def test_recovery_dispatch_failure_keeps_saved_job(client, monkeypatch):
+    monkeypatch.setenv('DOCUMENT_INGESTION_ENABLED', 'true')
+    monkeypatch.setenv('RESOURCE_ADMIN_TOKEN', 'admin')
+    job_id = uuid4()
+    recover = AsyncMock(return_value={'job_id': str(job_id), 'status': 'queued'})
+    monkeypatch.setattr(jobs, 'recover', recover)
+    monkeypatch.setattr(ingestion, 'dispatch', AsyncMock(return_value=False))
+    response = client.post(f'/admin/ingestion/{job_id}/recover', headers={'Authorization': 'Bearer admin'},
+                           files={'file': ('notes.txt', b'original')})
+    assert response.status_code == 200 and response.json()['dispatch_pending'] is True
+    assert response.headers['Cache-Control'] == 'no-store'
+    recover.assert_awaited_once_with(job_id, b'original', '.txt')
+
+
+@pytest.mark.parametrize('filename,data,expected', [('bad.exe', b'bad', 415), ('empty.txt', b'', 422)])
+def test_invalid_recovery_upload_does_not_touch_job(client, monkeypatch, filename, data, expected):
+    monkeypatch.setenv('DOCUMENT_INGESTION_ENABLED', 'true')
+    monkeypatch.setenv('RESOURCE_ADMIN_TOKEN', 'admin')
+    recover = AsyncMock()
+    monkeypatch.setattr(jobs, 'recover', recover)
+    response = client.post(f'/admin/ingestion/{uuid4()}/recover', headers={'Authorization': 'Bearer admin'},
+                           files={'file': (filename, data)})
+    assert response.status_code == expected
+    recover.assert_not_called()
+
+
 def test_retry_checks_quota_before_job_or_dispatch(client, monkeypatch):
     from app.usage import limiter
     monkeypatch.setenv('DOCUMENT_INGESTION_ENABLED', 'true')
