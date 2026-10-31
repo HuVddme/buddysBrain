@@ -14,7 +14,7 @@ export default function Buddy({
         ? Sparkles
         : CircleHelp;
   return (
-    <span className={`buddy buddy-${mood} buddy-${size}`} aria-hidden="true">
+    <span className={`buddy-mascot buddy-${mood} buddy-${size}`} aria-hidden="true">
       <img src={mascot} alt="" />
       {mood !== "idle" && (
         <span className="buddy-bubble">
