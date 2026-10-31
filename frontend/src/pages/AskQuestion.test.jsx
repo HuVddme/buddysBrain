@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { cleanup, render, screen, within, fireEvent } from '@testing-library/react';
+import { cleanup, render, screen, within, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import axios from 'axios';
@@ -188,5 +188,28 @@ test('streamed text appears before completion and an interrupted answer keeps it
  const answer=screen.getByRole('article',{name:'Answer to: Juniper limits?'});
  await user.click(within(answer).getByRole('button',{name:/\[P1\].*Juniper/}));
  expect(screen.getByRole('dialog').textContent).toContain('Original evidence.');
+ expect(axios.post).toHaveBeenCalledTimes(1);
+});
+
+test('voice input waits for browser start, preserves typed words and requires explicit submission', async()=>{
+ let recognition;
+ vi.stubGlobal('webkitSpeechRecognition',class {
+  constructor(){recognition=this;}
+  start=vi.fn();stop=vi.fn();abort=vi.fn();
+ });
+ const user=renderPage();
+ await user.type(screen.getByLabelText('Your question'),'Explain');
+ await user.click(screen.getByRole('button',{name:'Start recording'}));
+ expect(screen.getByText(/Waiting for microphone access/)).toBeTruthy();
+ await act(async()=>recognition.onstart());
+ expect(screen.getByText(/Listening…/)).toBeTruthy();
+ await act(async()=>recognition.onresult({results:[[{transcript:'heaps'}]]}));
+ await user.click(screen.getByRole('button',{name:'Stop recording'}));
+ await act(async()=>recognition.onend());
+ expect(screen.getByLabelText('Your question').value).toBe('Explain heaps');
+ expect(axios.post).not.toHaveBeenCalled();
+ axios.post.mockResolvedValueOnce({data:{summary:'A heap is a tree.',results:[]}});
+ await user.click(screen.getByRole('button',{name:'Ask Buddy'}));
+ expect(await screen.findByText('A heap is a tree.')).toBeTruthy();
  expect(axios.post).toHaveBeenCalledTimes(1);
 });

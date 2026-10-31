@@ -378,6 +378,13 @@ in a `VITE_*` variable.
   begin only after summarization and embedding succeed.
 - Questions can be typed without microphone access. Voice users can stop recording,
   review the transcript and select Ask Buddy. Failed questions remain available to retry.
+  Voice input uses the browser's Web Speech service, not the project's OpenAI key.
+  A Chromium-based browser may expose the API without a working recognition service.
+  Permission, microphone, network and unsupported-service failures have distinct
+  recovery messages. Recording waits for the browser's start event, ends after one
+  utterance or one minute, preserves the typed draft, and never submits automatically.
+  If a browser cannot provide speech recognition, use a supported browser or type;
+  this app does not currently upload audio to its own transcription endpoint.
 
 Changing credentials does not migrate existing media. The original Cloudinary
 account owner must still rotate the credentials exposed in repository history.

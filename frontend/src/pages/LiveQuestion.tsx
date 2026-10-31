@@ -3,6 +3,7 @@ import { ArrowUp as FiArrowUp, BookOpen as FiBookOpen } from "lucide-react";
 import type { Resource, ChatMessage } from "../lib/types";
 import { searchWithStream } from "../lib/searchStream";
 import Buddy from "../components/Buddy";
+import { useSpeechInput } from "../lib/useSpeechInput";
 import { usePreferences } from "../components/preferences";
 import AnswerSources from "./AnswerSources";
 import { youtubeEmbedUrl } from "../lib/youtube";
@@ -17,12 +18,12 @@ import { apiBaseUrl, serviceError } from "../lib/liveService";
 const LiveQuestion = () => {
   const { playCompletion } = usePreferences();
   const [question, setQuestion] = useState("");
-  const [recording, setRecording] = useState(false);
+  const speech = useSpeechInput(setQuestion);
+  const recording = speech.busy;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [selectedResult, setSelectedResult] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [speechError, setSpeechError] = useState("");
   const [selectedVoice, setSelectedVoice] =
     useState<SpeechSynthesisVoice | null>(null);
   const videoPreviewUrl =
@@ -30,12 +31,9 @@ const LiveQuestion = () => {
       ? youtubeEmbedUrl(selectedResult.media_link)
       : null;
 
-  const recognitionRef = useRef<BuddySpeechRecognition | null>(null);
   const requestBusyRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
-  const speechSupported = Boolean(
-    window.SpeechRecognition || window.webkitSpeechRecognition,
-  );
+  const speechSupported = speech.supported;
   const audioSupported = Boolean(window.speechSynthesis);
   const questionInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -52,29 +50,6 @@ const LiveQuestion = () => {
 
   // Voice is optional: typed questions also work without browser speech APIs.
   useEffect(() => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
-    recognitionRef.current = recognition;
-    if (recognition) {
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-      recognition.onresult = (event) => {
-        setQuestion(
-          Array.from(event.results)
-            .map((result) => result[0].transcript)
-            .join(" "),
-        );
-      };
-      recognition.onerror = () => {
-        setRecording(false);
-        setSpeechError(
-          "Microphone unavailable. You can type your question below.",
-        );
-      };
-      recognition.onend = () => setRecording(false);
-    }
     const synthesis = window.speechSynthesis;
     const loadVoices = () => {
       const available = synthesis?.getVoices() || [];
@@ -88,13 +63,6 @@ const LiveQuestion = () => {
     loadVoices();
     return () => {
       requestAbortRef.current?.abort();
-      if (recognition) {
-        recognition.onresult = null;
-        recognition.onerror = null;
-        recognition.onend = null;
-        recognition.abort();
-      }
-      recognitionRef.current = null;
       synthesis?.removeEventListener("voiceschanged", loadVoices);
       synthesis?.cancel();
     };
@@ -222,22 +190,7 @@ const LiveQuestion = () => {
   };
 
   const toggleRecording = () => {
-    if (!recognitionRef.current || isLoading) return;
-    setSpeechError("");
-    if (recording) {
-      recognitionRef.current.stop();
-      // Wait for the final transcript, then let the user review and submit it.
-    } else {
-      try {
-        window.speechSynthesis?.cancel();
-        recognitionRef.current.start();
-        setRecording(true);
-      } catch {
-        setSpeechError(
-          "Microphone unavailable. You can type your question below.",
-        );
-      }
-    }
+    if (!isLoading && speech.phase !== "stopping") speech.toggle(question);
   };
 
   const toggleAudio = () => {
@@ -317,6 +270,7 @@ const LiveQuestion = () => {
                   <button
                     key={text}
                     type="button"
+                    disabled={recording || isLoading}
                     onClick={() => {
                       setQuestion(text);
                       questionInputRef.current?.focus();
@@ -461,7 +415,15 @@ const LiveQuestion = () => {
                   type="button"
                   className={`record-btn ${recording ? "recording" : ""}`}
                   onClick={toggleRecording}
-                  disabled={!speechSupported || isLoading}
+                  disabled={
+                    !speechSupported || isLoading || speech.phase === "stopping"
+                  }
+                  aria-describedby="voice-help"
+                  title={
+                    !speechSupported
+                      ? "Voice input is unavailable in this browser"
+                      : "Dictate a question"
+                  }
                   aria-label={recording ? "Stop recording" : "Start recording"}
                 >
                   {recording ? (
@@ -474,22 +436,35 @@ const LiveQuestion = () => {
             </div>
           </form>
 
-          {speechError && <p role="status">{speechError}</p>}
+          {speech.error && (
+            <p role="status" className="speech-notice">
+              {speech.error}
+            </p>
+          )}
           {/* Recording indicator */}
-          <div className="recording-indicator">
+          <div
+            id="voice-help"
+            className="recording-indicator"
+            role="status"
+            aria-live="polite"
+          >
             {recording ? (
               <div className="pulse-recording">
                 <div className="recording-animation"></div>
-                Recording in progress... Click the stop button when finished.
+                {speech.phase === "starting"
+                  ? "Waiting for microphone access… Allow access if your browser asks."
+                  : speech.phase === "stopping"
+                    ? "Finishing your transcript…"
+                    : "Listening… Speak your question, then press Stop to review it."}
               </div>
             ) : (
               <div>
                 {isLoading ? (
                   <span>Looking for useful context…</span>
                 ) : speechSupported ? (
-                  "Type or record a question. Press Enter to send."
+                  "Type or dictate a question. Review the words, then press Enter to send."
                 ) : (
-                  "Press Enter to send. Check important facts against the sources."
+                  "Voice input is unavailable in this browser. Open this page in a browser with speech recognition, or type your question."
                 )}
               </div>
             )}

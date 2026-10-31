@@ -111,7 +111,7 @@ test('passage indexing notice stays with the answer it applies to', async () => 
   axios.post.mockResolvedValueOnce({ data: { summary: 'Saved summary answer.', results: [], retrieval_notice: notice } });
   const user = renderPage(AskQuestion, '/ask?mode=live');
   await user.type(screen.getByLabelText('Your question'), 'Cedar?{Enter}');
-  expect(await screen.findByRole('status')).toHaveProperty('textContent', notice);
+  expect(await screen.findByText(notice)).toHaveProperty('textContent', notice);
   axios.post.mockResolvedValueOnce({ data: { summary: 'Next answer.', results: [] } });
   await user.type(screen.getByLabelText('Your question'), 'Next question{Enter}');
   expect(await screen.findByText('Next answer.')).toBeTruthy();
